@@ -1,21 +1,48 @@
-# Next.js template
+# turbo-hub
 
-This is a Next.js template with shadcn/ui.
+Built with [turbo-project](https://github.com/timbenniks/Turbo-Project).
 
-## Adding components
+## Tech Stack
 
-To add components to your app, run the following command:
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Components | shadcn/ui |
+| ORM | Drizzle |
+| Database | Neon (serverless Postgres) |
+| Hosting | Vercel |
+
+## Getting Started
 
 ```bash
-npx shadcn@latest add button
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
 ```
 
-This will place the ui components in the `components` directory.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Using components
+## Database
 
-To use the components in your app, import them as follows:
+```bash
+# Generate migrations after schema changes
+npx drizzle-kit generate
 
-```tsx
-import { Button } from "@/components/ui/button";
+# Apply migrations
+npx drizzle-kit migrate
+
+# Push schema directly (dev only)
+npx drizzle-kit push
+
+# Open Drizzle Studio
+npx drizzle-kit studio
 ```
+
+Schema definitions live in `db/schema.ts`.
+## Deployment
+
+Deployed automatically via Vercel on push to main.
