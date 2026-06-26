@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { ClipboardPaste, Plus } from "lucide-react"
+import { ClipboardCopy, ClipboardPaste, Plus } from "lucide-react"
+import { toast } from "sonner"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
@@ -9,10 +10,16 @@ import { Button } from "@/components/ui/button"
 import { Field, ReadField } from "@/components/ui/field"
 import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
+import { Markdown } from "@/components/ui/markdown"
 import { Textarea } from "@/components/ui/textarea"
 import { PromptDialog } from "@/components/prompt-dialog"
 import { apiSend } from "@/lib/client"
 import { labelize } from "@/lib/labels"
+import {
+  buildExternalPlanPrompt,
+  parsePlanMarkdown,
+  type PlanContext,
+} from "@/lib/plan-import"
 import type { Plan } from "@/lib/services/plans"
 
 const PLAN_FIELDS = [
@@ -26,9 +33,11 @@ const PLAN_FIELDS = [
 
 export function PlanManager({
   projectId,
+  project,
   plans,
 }: {
   projectId: string
+  project: PlanContext
   plans: Plan[]
 }) {
   const { busy, run } = useAsyncAction()
@@ -55,7 +64,8 @@ export function PlanManager({
               )
             }
           />
-          <PastePlanDialog
+          <ExternalPlanDialog
+            project={project}
             disabled={busy}
             onSubmit={(values) =>
               run(
@@ -140,12 +150,30 @@ export function PlanManager({
                       )
                     }
                   />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={busy}
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          `Delete plan "${plan.title}"? This can't be undone.`
+                        )
+                      )
+                        return
+                      run(
+                        () => apiSend(`/api/plans/${plan.id}`, "DELETE"),
+                        "Plan deleted"
+                      )
+                    }}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </div>
-              {plan.summary && <p className="text-sm">{plan.summary}</p>}
-              {plan.body && (
-                <p className="text-sm whitespace-pre-wrap">{plan.body}</p>
-              )}
+              {plan.summary && <Markdown>{plan.summary}</Markdown>}
+              {plan.body && <Markdown>{plan.body}</Markdown>}
               <div className="grid gap-4 sm:grid-cols-2">
                 {PLAN_FIELDS.filter((f) => f.name !== "summary").map((f) => (
                   <ReadField
@@ -191,6 +219,15 @@ function PlanFormDialog({
           required
         />
       </Field>
+      <Field label="Plan (Markdown)" htmlFor="plan-body">
+        <Textarea
+          id="plan-body"
+          name="body"
+          rows={10}
+          defaultValue={plan?.body ?? ""}
+          placeholder="Full plan body — used for pasted plans. Leave empty to use the structured fields below."
+        />
+      </Field>
       {PLAN_FIELDS.map((f) => (
         <Field key={f.name} label={f.label} htmlFor={`plan-${f.name}`}>
           <Textarea
@@ -205,17 +242,39 @@ function PlanFormDialog({
   )
 }
 
-/** Paste a whole plan (e.g. from an external chat) as one Markdown body. */
-function PastePlanDialog({
+/**
+ * Plan with an external agent: copy a project-aware prompt, paste the agent's
+ * labeled-Markdown reply, and parse it into structured fields. Falls back to a
+ * raw Markdown body if no known headings are found, so a paste is never lost.
+ */
+function ExternalPlanDialog({
+  project,
   onSubmit,
   disabled,
 }: {
+  project: PlanContext
   onSubmit: (values: Record<string, string>) => Promise<boolean>
   disabled?: boolean
 }) {
+  async function copyPrompt() {
+    const prompt = buildExternalPlanPrompt(project)
+    try {
+      await navigator.clipboard.writeText(prompt)
+      toast.success("Prompt copied — paste it into your agent")
+    } catch {
+      toast.error("Couldn't access the clipboard")
+    }
+  }
+
+  function handleSubmit(values: Record<string, string>) {
+    const { title, paste } = values
+    const parsed = parsePlanMarkdown(paste ?? "")
+    return onSubmit({ title, ...parsed })
+  }
+
   return (
     <FormDialog
-      title="Paste a plan"
+      title="Plan with an external agent"
       submitLabel="Add plan"
       trigger={
         <Button variant="outline">
@@ -223,9 +282,19 @@ function PastePlanDialog({
           Paste plan
         </Button>
       }
-      onSubmit={onSubmit}
+      onSubmit={handleSubmit}
       disabled={disabled}
     >
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 p-3">
+        <p className="text-xs text-muted-foreground">
+          Copy a project-aware prompt, run it in your agent, then paste the
+          Markdown reply below.
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={copyPrompt}>
+          <ClipboardCopy />
+          Copy prompt
+        </Button>
+      </div>
       <Field label="Title" htmlFor="paste-title">
         <Input
           id="paste-title"
@@ -234,12 +303,12 @@ function PastePlanDialog({
           required
         />
       </Field>
-      <Field label="Plan" htmlFor="paste-body">
+      <Field label="Agent output (Markdown)" htmlFor="paste-body">
         <Textarea
           id="paste-body"
-          name="body"
+          name="paste"
           rows={14}
-          placeholder="Paste the full plan markdown here…"
+          placeholder="Paste the agent's plan here. Recognized headings (Summary, Goals, Non-goals, Constraints, Milestones, Open questions) become structured fields…"
           required
         />
       </Field>

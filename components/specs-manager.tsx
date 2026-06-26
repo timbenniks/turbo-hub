@@ -1,12 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, Sparkles } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { PromptDialog } from "@/components/prompt-dialog"
 import { SpecFormDialog } from "@/components/spec-form-dialog"
 import { apiSend } from "@/lib/client"
 import { labelize } from "@/lib/labels"
@@ -28,22 +27,23 @@ export function SpecsManager({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-muted-foreground">Specs</h2>
         <div className="flex gap-2">
-          <PromptDialog
-            triggerLabel="Generate spec"
-            title="Generate a spec"
-            description="Describe the feature or milestone. Uses the active plan as context."
-            placeholder="e.g. The first milestone: user auth and workspace bootstrap…"
+          <Button
             disabled={busy}
-            onSubmit={(instruction) =>
+            onClick={() =>
               run(
                 () =>
-                  apiSend(`/api/projects/${projectId}/specs/generate`, "POST", {
-                    instruction,
-                  }),
+                  apiSend(
+                    `/api/projects/${projectId}/specs/generate`,
+                    "POST",
+                    {}
+                  ),
                 "Spec generated"
               )
             }
-          />
+          >
+            <Sparkles />
+            Generate spec
+          </Button>
           <SpecFormDialog
             title="New spec"
             trigger={

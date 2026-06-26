@@ -6,7 +6,7 @@ import type { AuthContext } from "@/lib/auth/context"
 import { generateSpec, generateTasks } from "@/lib/ai/generate"
 import { bullets, sections } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
-import { getActivePlan, getPlan } from "@/lib/services/plans"
+import { getActivePlan, getPlan, type Plan } from "@/lib/services/plans"
 import { createTasksFromGenerated } from "@/lib/services/tasks"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type { SpecCreateInput, SpecUpdateInput } from "@/lib/validation/specs"
@@ -192,19 +192,38 @@ type ProjectContext = {
   constraints: string | null
 }
 
-/** Generate a draft spec from the active plan (or a focus instruction). */
+/** Assemble the full plan (not just its summary) into context for the model. */
+function planContext(plan: Plan | null): string | null {
+  if (!plan) return null
+  const parts = [
+    plan.summary && `Summary:\n${plan.summary}`,
+    plan.goals && `Goals:\n${plan.goals}`,
+    plan.nonGoals && `Non-goals:\n${plan.nonGoals}`,
+    plan.constraints && `Constraints:\n${plan.constraints}`,
+    plan.milestones && `Milestones:\n${plan.milestones}`,
+    plan.openQuestions && `Open questions:\n${plan.openQuestions}`,
+    plan.body && `Full plan:\n${plan.body}`,
+  ].filter(Boolean)
+  return parts.length ? parts.join("\n\n") : null
+}
+
+/** Generate a draft spec from the active plan (or an optional focus). */
 export async function generateSpecForProject(
   ctx: AuthContext,
   workspaceId: string,
   project: ProjectContext,
-  instruction: string,
+  instruction?: string | null,
   planId?: string
 ): Promise<Spec> {
   const plan = planId
     ? await getPlan(workspaceId, planId)
     : await getActivePlan(workspaceId, project.id)
 
-  const gen = await generateSpec(project, plan?.summary ?? null, instruction)
+  const gen = await generateSpec(
+    project,
+    planContext(plan),
+    instruction ?? null
+  )
 
   return createSpec(ctx, workspaceId, project.id, {
     title: gen.title,

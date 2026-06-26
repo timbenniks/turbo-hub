@@ -49,8 +49,8 @@ export async function generatePlan(
 
 export async function generateSpec(
   project: ProjectContext,
-  planSummary: string | null,
-  instruction: string
+  planContext: string | null,
+  instruction: string | null
 ): Promise<SpecGen> {
   const { object } = await generateObject({
     model: REASONING_MODEL,
@@ -60,8 +60,11 @@ export async function generateSpec(
       "and testable. Acceptance criteria must be verifiable.",
     prompt: [
       projectBlock(project),
-      planSummary ? `\nActive plan summary:\n${planSummary}` : "",
-      `\nSpec focus:\n${instruction}`,
+      planContext ? `\nProject plan:\n${planContext}` : "",
+      instruction
+        ? `\nSpec focus:\n${instruction}`
+        : "\nScope this spec to the most important next milestone in the plan." +
+          " If the plan lists milestones, pick the first one and spec it.",
       "\nGenerate a single implementation spec.",
     ].join("\n"),
   })

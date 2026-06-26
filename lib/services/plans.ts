@@ -189,6 +189,46 @@ export async function markPlanActive(
 }
 
 /**
+ * Hard-delete a plan. Plans are child records with no soft-delete status, so
+ * removal is permanent. Clears the project's `currentPlanId` pointer if it
+ * referenced this plan.
+ */
+export async function deletePlan(
+  ctx: AuthContext,
+  workspaceId: string,
+  planId: string
+): Promise<Plan | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
+  const plan = await getPlan(workspaceId, planId)
+  if (!plan) return null
+
+  await db
+    .update(projects)
+    .set({ currentPlanId: null })
+    .where(
+      and(
+        eq(projects.workspaceId, workspaceId),
+        eq(projects.id, plan.projectId),
+        eq(projects.currentPlanId, planId)
+      )
+    )
+
+  await db
+    .delete(plans)
+    .where(and(eq(plans.workspaceId, workspaceId), eq(plans.id, planId)))
+
+  await recordActivity({
+    workspaceId,
+    projectId: plan.projectId,
+    actorId: ctx.userId,
+    type: "plan.deleted",
+    title: `Deleted plan "${plan.title}"`,
+  })
+  invalidateTags(cacheTags.project(workspaceId, plan.projectId))
+  return plan
+}
+
+/**
  * Generate a draft plan from an idea prompt (spec §11.2). Lands as a draft for
  * the user to review and activate (agents suggest, humans approve).
  */

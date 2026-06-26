@@ -1,4 +1,5 @@
 import { Label } from "@/components/ui/label"
+import { Markdown } from "@/components/ui/markdown"
 
 /** Label + control wrapper for forms. */
 export function Field({
@@ -30,7 +31,7 @@ export function ReadField({
   return (
     <div className="space-y-1">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm whitespace-pre-wrap">{value}</p>
+      <Markdown>{value}</Markdown>
     </div>
   )
 }

@@ -5,8 +5,8 @@ const md = z.string().trim().max(8000)
 export const planCreateSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(160),
   // Free-form pasted plan (e.g. from an external chat). Larger cap than the
-  // structured fields.
-  body: z.string().trim().max(20000).optional(),
+  // structured fields — a full pasted planning doc easily exceeds 20k chars.
+  body: z.string().trim().max(100000).optional(),
   summary: md.optional(),
   goals: md.optional(),
   nonGoals: md.optional(),

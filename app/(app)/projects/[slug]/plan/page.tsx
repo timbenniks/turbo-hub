@@ -9,10 +9,23 @@ export default async function ProjectPlanPage({
   params: Promise<{ slug: string }>
 }) {
   return timeAsync("render.project.plan", async () => {
-  const { slug } = await params
-  const { workspaceId, project } = await loadProject(slug)
-  const plans = await listPlans(workspaceId, project.id)
+    const { slug } = await params
+    const { workspaceId, project } = await loadProject(slug)
+    const plans = await listPlans(workspaceId, project.id)
 
-  return <PlanManager projectId={project.id} plans={plans} />
+    return (
+      <PlanManager
+        projectId={project.id}
+        project={{
+          name: project.name,
+          description: project.description,
+          type: project.type,
+          stack: project.stack,
+          goal: project.goal,
+          constraints: project.constraints,
+        }}
+        plans={plans}
+      />
+    )
   })
 }
