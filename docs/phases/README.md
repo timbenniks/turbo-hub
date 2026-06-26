@@ -5,17 +5,32 @@ Each phase doc is self-contained: goal, prerequisites, task checklist, files to
 touch, and acceptance criteria. Build them in order. Each phase ends in a
 demoable, deployable state.
 
-## Where we are now (scaffold baseline)
+## Where we are now (Phase 1 baseline)
 
-Already in the repo (`AGENTS.md` describes it):
+Already in the repo (`AGENTS.md` describes the project conventions):
 
-- Next.js 16 App Router + TypeScript + React 19
-- Tailwind v4 + shadcn/ui (`base-nova` style), only `Button` so far
-- Drizzle ORM + Neon serverless driver, `DATABASE_URL` wired via Vercel
-- Empty `db/schema.ts`, stub `app/page.tsx`, theme provider
+- Next.js 16 App Router + TypeScript + React 19.
+- Tailwind v4 + shadcn/ui primitives for the app shell, forms, cards, tables,
+  dialogs, tabs, badges, dropdowns, avatar, and native select wrapper.
+- Drizzle ORM + Neon serverless driver, `DATABASE_URL` wired through
+  `drizzle.config.ts`.
+- Auth.js GitHub identity login with database sessions and first-sign-in
+  personal workspace bootstrap.
+- Workspace-scoped schema and services for users, workspaces, memberships,
+  projects, tags, activity events, plans, specs, spec versions, tasks, and task
+  dependencies.
+- Domain services in `lib/services/`; App Router pages and API routes call those
+  services rather than touching Drizzle directly.
+- Project dashboard/list/detail UI, project tagging/archive flow, plan/spec/task
+  tabs, AI-assisted plan/spec/task generation, editable drafts, spec versioning,
+  task dependencies/subtasks, and task activity display.
 
-Not yet present (spec requires): Auth.js, Vercel AI SDK, Zod, the domain
-service layer, any tables, any API routes, MCP server, CLI.
+Current gate: `npm run typecheck`, `npm run lint`, and `npx drizzle-kit check`
+must pass before moving into the next phase.
+
+Not yet present (later phases): context packs, decisions, learnings, patterns,
+agent runs, pull requests, integrations, MCP server, scoped tokens, CLI, and
+local/cloud runner adapters.
 
 ## Target architecture (spec §15)
 

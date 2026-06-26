@@ -12,7 +12,7 @@ export function PATCH(req: NextRequest, { params }: Params) {
     const { tagId } = await params
     const ctx = await requirePrimaryWorkspace()
     const input = tagUpdateSchema.parse(await req.json())
-    const tag = await updateTag(ctx.workspaceId, tagId, input)
+    const tag = await updateTag(ctx, ctx.workspaceId, tagId, input)
     return tag ?? notFound("Tag not found")
   })
 }
@@ -21,7 +21,7 @@ export function DELETE(_req: NextRequest, { params }: Params) {
   return handle(async () => {
     const { tagId } = await params
     const ctx = await requirePrimaryWorkspace()
-    const tag = await deleteTag(ctx.workspaceId, tagId)
+    const tag = await deleteTag(ctx, ctx.workspaceId, tagId)
     return tag ?? notFound("Tag not found")
   })
 }

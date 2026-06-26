@@ -16,6 +16,6 @@ export function POST(req: NextRequest) {
   return handle(async () => {
     const ctx = await requirePrimaryWorkspace()
     const input = tagCreateSchema.parse(await req.json())
-    return createTag(ctx.workspaceId, input)
+    return createTag(ctx, ctx.workspaceId, input)
   })
 }

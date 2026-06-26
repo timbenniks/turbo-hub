@@ -13,12 +13,18 @@ export function useAsyncAction() {
   const [busy, setBusy] = React.useState(false)
 
   const run = React.useCallback(
-    async (fn: () => Promise<unknown>, successMessage: string) => {
+    async (
+      fn: () => Promise<unknown>,
+      successMessage: string,
+      options: { refresh?: boolean } = {}
+    ) => {
       setBusy(true)
       try {
         await fn()
         toast.success(successMessage)
-        router.refresh()
+        if (options.refresh !== false) {
+          router.refresh()
+        }
         return true
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Something went wrong")

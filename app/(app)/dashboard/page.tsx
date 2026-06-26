@@ -11,21 +11,19 @@ import {
 import { ProjectCard } from "@/components/project-card"
 import { ProjectFormDialog } from "@/components/project-form-dialog"
 import { requirePrimaryWorkspace } from "@/lib/auth/context"
-import { listProjects } from "@/lib/services/projects"
-import { listTags } from "@/lib/services/tags"
+import { listRecentProjects } from "@/lib/services/projects"
+import { countTasksByStatus } from "@/lib/services/tasks"
 
 export default async function DashboardPage() {
   const ctx = await requirePrimaryWorkspace()
-  const [projects, tags] = await Promise.all([
-    listProjects(ctx.workspaceId, { includeArchived: false }),
-    listTags(ctx.workspaceId),
+  const [recent, blockedTaskCount] = await Promise.all([
+    listRecentProjects(ctx.workspaceId),
+    countTasksByStatus(ctx.workspaceId, "blocked"),
   ])
-  const recent = projects.slice(0, 6)
 
   const placeholders = [
     { title: "Active runs", hint: "Agent runs appear here (Phase 3)." },
     { title: "Open pull requests", hint: "Linked PRs appear here (Phase 3+)." },
-    { title: "Blocked tasks", hint: "Blocked work appears here (Phase 1)." },
     {
       title: "Recent learnings",
       hint: "Captured learnings appear here (Phase 2).",
@@ -37,7 +35,7 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
         <ProjectFormDialog
-          tags={tags}
+          tags={[]}
           trigger={
             <Button>
               <Plus />
@@ -67,6 +65,18 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Blocked tasks</CardTitle>
+            <CardDescription className="text-xs">
+              {blockedTaskCount === 0
+                ? "No blocked work right now."
+                : `${blockedTaskCount} task${
+                    blockedTaskCount === 1 ? "" : "s"
+                  } blocked.`}
+            </CardDescription>
+          </CardHeader>
+        </Card>
         {placeholders.map((p) => (
           <Card key={p.title}>
             <CardHeader>

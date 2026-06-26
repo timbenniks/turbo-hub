@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import type { z } from "zod"
@@ -53,21 +53,26 @@ type ExistingProject = {
 }
 
 type Props = {
-  tags: TagOption[]
+  tags?: TagOption[]
   project?: ExistingProject
   trigger: React.ReactNode
 }
 
-export function ProjectFormDialog({ tags, project, trigger }: Props) {
+const EMPTY_TAGS: TagOption[] = []
+
+export function ProjectFormDialog({ tags = EMPTY_TAGS, project, trigger }: Props) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
+  const [fetchedTags, setFetchedTags] = React.useState<TagOption[] | null>(null)
   const isEdit = Boolean(project)
+  const availableTags = fetchedTags ?? tags
+  const tagsLoaded = fetchedTags !== null || tags.length > 0
 
   const {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     setValue,
     formState: { isSubmitting, errors },
   } = useForm<FormValues, unknown, ProjectCreateInput>({
@@ -94,7 +99,26 @@ export function ProjectFormDialog({ tags, project, trigger }: Props) {
         },
   })
 
-  const selectedTagIds = watch("tagIds") ?? []
+  const selectedTagIds = useWatch({ control, name: "tagIds" }) ?? []
+
+  React.useEffect(() => {
+    if (!open || !isEdit || tagsLoaded) return
+
+    let active = true
+    fetch("/api/tags")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((nextTags: TagOption[]) => {
+        if (!active) return
+        setFetchedTags(nextTags)
+      })
+      .catch(() => {
+        if (active) setFetchedTags([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [isEdit, open, tagsLoaded])
 
   function toggleTag(id: string) {
     const next = selectedTagIds.includes(id)
@@ -147,98 +171,106 @@ export function ProjectFormDialog({ tags, project, trigger }: Props) {
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Input id="description" {...register("description")} />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="status">Status</Label>
-              <NativeSelect
-                id="status"
-                className="w-full"
-                {...register("status")}
-              >
-                {PROJECT_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {labelize(s)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="priority">Priority</Label>
-              <NativeSelect
-                id="priority"
-                className="w-full"
-                {...register("priority")}
-              >
-                {PROJECT_PRIORITIES.map((s) => (
-                  <option key={s} value={s}>
-                    {labelize(s)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="type">Type</Label>
-              <NativeSelect id="type" className="w-full" {...register("type")}>
-                {PROJECT_TYPES.map((s) => (
-                  <option key={s} value={s}>
-                    {labelize(s)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="stack">Stack (comma separated)</Label>
-            <Input
-              id="stack"
-              defaultValue={project?.stack.join(", ")}
-              onChange={(e) =>
-                setValue(
-                  "stack",
-                  e.target.value
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                )
-              }
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="goal">Goal</Label>
-            <Input id="goal" {...register("goal")} />
-          </div>
-
-          {tags.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Tags</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((t) => {
-                  const on = selectedTagIds.includes(t.id)
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => toggleTag(t.id)}
-                      className={cn(
-                        "rounded-md border px-2 py-0.5 text-xs transition-colors",
-                        on
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border text-muted-foreground hover:bg-muted"
-                      )}
-                    >
-                      {t.name}
-                    </button>
-                  )
-                })}
+          {isEdit && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="description">Description</Label>
+                <Input id="description" {...register("description")} />
               </div>
-            </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="status">Status</Label>
+                  <NativeSelect
+                    id="status"
+                    className="w-full"
+                    {...register("status")}
+                  >
+                    {PROJECT_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {labelize(s)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="priority">Priority</Label>
+                  <NativeSelect
+                    id="priority"
+                    className="w-full"
+                    {...register("priority")}
+                  >
+                    {PROJECT_PRIORITIES.map((s) => (
+                      <option key={s} value={s}>
+                        {labelize(s)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="type">Type</Label>
+                  <NativeSelect
+                    id="type"
+                    className="w-full"
+                    {...register("type")}
+                  >
+                    {PROJECT_TYPES.map((s) => (
+                      <option key={s} value={s}>
+                        {labelize(s)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="stack">Stack (comma separated)</Label>
+                <Input
+                  id="stack"
+                  defaultValue={project?.stack.join(", ")}
+                  onChange={(e) =>
+                    setValue(
+                      "stack",
+                      e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                    )
+                  }
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="goal">Goal</Label>
+                <Input id="goal" {...register("goal")} />
+              </div>
+
+              {availableTags.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Tags</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableTags.map((t) => {
+                      const on = selectedTagIds.includes(t.id)
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTag(t.id)}
+                          className={cn(
+                            "rounded-md border px-2 py-0.5 text-xs transition-colors",
+                            on
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          {t.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </form>
 

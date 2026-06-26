@@ -17,6 +17,13 @@ export async function handle<T>(fn: () => Promise<T>): Promise<NextResponse> {
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
+    if (
+      err instanceof Error &&
+      "status" in err &&
+      typeof err.status === "number"
+    ) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     if (err instanceof ZodError) {
       return NextResponse.json(
         { error: "Invalid input", issues: err.issues },

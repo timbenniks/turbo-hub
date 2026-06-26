@@ -2,6 +2,9 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/db"
 import { projectTags, tags } from "@/db/schema"
+import type { AuthContext } from "@/lib/auth/context"
+import { recordActivity } from "@/lib/services/activity"
+import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import { uniqueSlug } from "@/lib/slug"
 import type { TagCreateInput, TagUpdateInput } from "@/lib/validation/tags"
 
@@ -21,7 +24,12 @@ async function takenTagSlugs(workspaceId: string): Promise<Set<string>> {
   return new Set(rows.map((r) => r.slug))
 }
 
-export async function createTag(workspaceId: string, input: TagCreateInput) {
+export async function createTag(
+  ctx: AuthContext,
+  workspaceId: string,
+  input: TagCreateInput
+) {
+  await assertWorkspaceMember(ctx, workspaceId)
   const slug = uniqueSlug(input.name, await takenTagSlugs(workspaceId))
   const [row] = await db
     .insert(tags)
@@ -32,14 +40,25 @@ export async function createTag(workspaceId: string, input: TagCreateInput) {
       color: input.color ?? null,
     })
     .returning()
+
+  await recordActivity({
+    workspaceId,
+    actorId: ctx.userId,
+    type: "tag.created",
+    title: `Created tag "${row.name}"`,
+    metadata: { tagId: row.id },
+  })
+
   return row
 }
 
 export async function updateTag(
+  ctx: AuthContext,
   workspaceId: string,
   tagId: string,
   input: TagUpdateInput
 ) {
+  await assertWorkspaceMember(ctx, workspaceId)
   const [row] = await db
     .update(tags)
     .set({
@@ -48,14 +67,41 @@ export async function updateTag(
     })
     .where(and(eq(tags.id, tagId), eq(tags.workspaceId, workspaceId)))
     .returning()
+
+  if (row) {
+    await recordActivity({
+      workspaceId,
+      actorId: ctx.userId,
+      type: "tag.updated",
+      title: `Updated tag "${row.name}"`,
+      metadata: { tagId: row.id },
+    })
+  }
+
   return row ?? null
 }
 
-export async function deleteTag(workspaceId: string, tagId: string) {
+export async function deleteTag(
+  ctx: AuthContext,
+  workspaceId: string,
+  tagId: string
+) {
+  await assertWorkspaceMember(ctx, workspaceId)
   const [row] = await db
     .delete(tags)
     .where(and(eq(tags.id, tagId), eq(tags.workspaceId, workspaceId)))
-    .returning({ id: tags.id })
+    .returning({ id: tags.id, name: tags.name })
+
+  if (row) {
+    await recordActivity({
+      workspaceId,
+      actorId: ctx.userId,
+      type: "tag.deleted",
+      title: `Deleted tag "${row.name}"`,
+      metadata: { tagId: row.id },
+    })
+  }
+
   return row ?? null
 }
 

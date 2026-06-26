@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, count, eq, sql } from "drizzle-orm"
 
 import { db } from "@/db"
 import { taskDependencies, tasks } from "@/db/schema"
@@ -6,6 +6,7 @@ import type { AuthContext } from "@/lib/auth/context"
 import type { TaskGen } from "@/lib/ai/schemas"
 import { bullets } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
+import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type {
   TaskCreateInput,
   TaskDependencyCreateInput,
@@ -15,6 +16,38 @@ import type {
 
 export type Task = typeof tasks.$inferSelect
 export type TaskDependency = typeof taskDependencies.$inferSelect
+
+export async function countTasksByStatus(
+  workspaceId: string,
+  status: Task["status"]
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(tasks)
+    .where(and(eq(tasks.workspaceId, workspaceId), eq(tasks.status, status)))
+
+  return row?.value ?? 0
+}
+
+export async function getProjectTaskCounts(
+  workspaceId: string,
+  projectId: string
+): Promise<{ total: number; open: number }> {
+  const [row] = await db
+    .select({
+      total: count(),
+      open: sql<number>`count(*) filter (where ${tasks.status} not in ('done', 'canceled'))`,
+    })
+    .from(tasks)
+    .where(
+      and(eq(tasks.workspaceId, workspaceId), eq(tasks.projectId, projectId))
+    )
+
+  return {
+    total: Number(row?.total ?? 0),
+    open: Number(row?.open ?? 0),
+  }
+}
 
 export async function listTasks(
   workspaceId: string,
@@ -53,6 +86,7 @@ export async function createTask(
   projectId: string,
   input: TaskCreateInput
 ): Promise<Task> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const [row] = await db
     .insert(tasks)
     .values({
@@ -78,6 +112,7 @@ export async function createTask(
     actorId: ctx.userId,
     type: "task.created",
     title: `Created task "${row.title}"`,
+    metadata: { taskId: row.id },
   })
   return row
 }
@@ -90,8 +125,9 @@ export async function createTasksFromGenerated(
   specId: string,
   genTasks: TaskGen["tasks"]
 ): Promise<Task[]> {
+  await assertWorkspaceMember(ctx, workspaceId)
   if (genTasks.length === 0) return []
-  return db
+  const created = await db
     .insert(tasks)
     .values(
       genTasks.map((t) => ({
@@ -108,6 +144,21 @@ export async function createTasksFromGenerated(
       }))
     )
     .returning()
+
+  await Promise.all(
+    created.map((task) =>
+      recordActivity({
+        workspaceId,
+        projectId,
+        actorId: ctx.userId,
+        type: "task.created",
+        title: `Created task "${task.title}"`,
+        metadata: { taskId: task.id, generated: true, specId },
+      })
+    )
+  )
+
+  return created
 }
 
 export async function updateTask(
@@ -116,6 +167,7 @@ export async function updateTask(
   taskId: string,
   input: TaskUpdateInput
 ): Promise<Task | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const fields: Partial<typeof tasks.$inferInsert> = {}
   if (input.title !== undefined) fields.title = input.title
   if (input.description !== undefined)
@@ -150,6 +202,7 @@ export async function updateTask(
     actorId: ctx.userId,
     type: "task.updated",
     title: `Updated task "${row.title}"`,
+    metadata: { taskId: row.id },
   })
   return row
 }
@@ -176,7 +229,11 @@ export async function addDependency(
   taskId: string,
   input: TaskDependencyCreateInput
 ): Promise<TaskDependency | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
   if (input.dependsOnTaskId === taskId) return null
+  const dependsOn = await getTask(workspaceId, input.dependsOnTaskId)
+  if (!dependsOn || dependsOn.projectId !== projectId) return null
+
   const [row] = await db
     .insert(taskDependencies)
     .values({
@@ -188,5 +245,21 @@ export async function addDependency(
     })
     .onConflictDoNothing()
     .returning()
+
+  if (row) {
+    await recordActivity({
+      workspaceId,
+      projectId,
+      actorId: ctx.userId,
+      type: "task.dependency_added",
+      title: "Added task dependency",
+      metadata: {
+        taskId,
+        dependsOnTaskId: input.dependsOnTaskId,
+        dependencyType: input.type,
+      },
+    })
+  }
+
   return row ?? null
 }

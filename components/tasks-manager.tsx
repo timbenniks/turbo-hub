@@ -6,9 +6,16 @@ import { Plus } from "lucide-react"
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { TaskFormDialog } from "@/components/task-form-dialog"
 import { apiSend } from "@/lib/client"
-import { TASK_STATUSES } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
 import type { Task } from "@/lib/services/tasks"
 
@@ -24,10 +31,7 @@ export function TasksManager({
   specs: { id: string; title: string }[]
 }) {
   const { busy, run } = useAsyncAction()
-  const groups = TASK_STATUSES.map((status) => ({
-    status,
-    items: tasks.filter((t) => t.status === status),
-  })).filter((g) => g.items.length > 0)
+  const specTitleById = new Map(specs.map((spec) => [spec.id, spec.title]))
 
   return (
     <div className="space-y-4">
@@ -57,28 +61,49 @@ export function TasksManager({
           No tasks yet. Create one, or generate tasks from a spec.
         </p>
       ) : (
-        <div className="space-y-5">
-          {groups.map((group) => (
-            <div key={group.status} className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                {labelize(group.status)} ({group.items.length})
-              </p>
-              <div className="divide-y divide-border rounded-xl border border-border">
-                {group.items.map((task) => (
-                  <Link
-                    key={task.id}
-                    href={`/projects/${slug}/tasks/${task.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
-                  >
-                    <span className="truncate text-sm">{task.title}</span>
-                    <Badge variant="outline" className="shrink-0">
-                      {labelize(task.priority)}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Task</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Assignee</TableHead>
+                <TableHead>Runner</TableHead>
+                <TableHead>Spec</TableHead>
+                <TableHead className="text-right">Created</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell className="max-w-72">
+                    <Link
+                      href={`/projects/${slug}/tasks/${task.id}`}
+                      prefetch
+                      className="block truncate font-medium hover:underline"
+                    >
+                      {task.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{labelize(task.status)}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{labelize(task.priority)}</Badge>
+                  </TableCell>
+                  <TableCell>{labelize(task.assigneeType)}</TableCell>
+                  <TableCell>{labelize(task.runnerPreference)}</TableCell>
+                  <TableCell className="max-w-44 truncate text-muted-foreground">
+                    {task.specId ? specTitleById.get(task.specId) : "None"}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {task.createdAt.toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

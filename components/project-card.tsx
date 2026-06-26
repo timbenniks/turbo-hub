@@ -8,6 +8,7 @@ export function ProjectCard({ project }: { project: ProjectWithTags }) {
   return (
     <Link
       href={`/projects/${project.slug}`}
+      prefetch
       className="group flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:bg-muted/40"
     >
       <div className="flex items-start justify-between gap-2">

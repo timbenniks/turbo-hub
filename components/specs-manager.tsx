@@ -75,6 +75,7 @@ export function SpecsManager({
             <Link
               key={spec.id}
               href={`/projects/${slug}/specs/${spec.id}`}
+              prefetch
               className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
             >
               <div className="min-w-0">

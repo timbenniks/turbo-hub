@@ -6,6 +6,7 @@ import type { AuthContext } from "@/lib/auth/context"
 import { generatePlan } from "@/lib/ai/generate"
 import { bullets } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
+import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type { PlanCreateInput, PlanUpdateInput } from "@/lib/validation/plans"
 
 export type Plan = typeof plans.$inferSelect
@@ -59,6 +60,7 @@ export async function createPlan(
   projectId: string,
   input: PlanCreateInput
 ): Promise<Plan> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const [row] = await db
     .insert(plans)
     .values({
@@ -92,6 +94,7 @@ export async function updatePlan(
   planId: string,
   input: PlanUpdateInput
 ): Promise<Plan | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const fields: Partial<typeof plans.$inferInsert> = {}
   for (const key of [
     "title",
@@ -133,6 +136,7 @@ export async function markPlanActive(
   workspaceId: string,
   planId: string
 ): Promise<Plan | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const plan = await getPlan(workspaceId, planId)
   if (!plan) return null
 

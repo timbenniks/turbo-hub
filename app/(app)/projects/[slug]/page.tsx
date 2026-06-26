@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 import { getActivePlan } from "@/lib/services/plans"
-import { listTasks } from "@/lib/services/tasks"
+import { getProjectTaskCounts } from "@/lib/services/tasks"
 import { loadProject } from "./project-context"
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -21,13 +21,10 @@ export default async function ProjectOverviewPage({
 }) {
   const { slug } = await params
   const { workspaceId, project } = await loadProject(slug)
-  const [activePlan, openTasks] = await Promise.all([
+  const [activePlan, taskCounts] = await Promise.all([
     getActivePlan(workspaceId, project.id),
-    listTasks(workspaceId, project.id),
+    getProjectTaskCounts(workspaceId, project.id),
   ])
-  const openCount = openTasks.filter(
-    (t) => t.status !== "done" && t.status !== "canceled"
-  ).length
 
   return (
     <div className="space-y-6">
@@ -46,11 +43,11 @@ export default async function ProjectOverviewPage({
         </div>
         <div className="rounded-lg border border-border p-3">
           <p className="text-xs text-muted-foreground">Open tasks</p>
-          <p className="text-sm font-medium">{openCount}</p>
+          <p className="text-sm font-medium">{taskCounts.open}</p>
         </div>
         <div className="rounded-lg border border-border p-3">
           <p className="text-xs text-muted-foreground">Total tasks</p>
-          <p className="text-sm font-medium">{openTasks.length}</p>
+          <p className="text-sm font-medium">{taskCounts.total}</p>
         </div>
       </div>
 

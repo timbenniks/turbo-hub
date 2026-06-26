@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { TaskDetail } from "@/components/task-detail"
+import { listTaskActivity } from "@/lib/services/activity"
 import { listSpecs } from "@/lib/services/specs"
 import { getTask, listDependencies, listTasks } from "@/lib/services/tasks"
 import { loadProject } from "../../project-context"
@@ -16,10 +17,11 @@ export default async function TaskDetailPage({
   const task = await getTask(workspaceId, taskId)
   if (!task || task.projectId !== project.id) notFound()
 
-  const [specs, allTasks, dependencies] = await Promise.all([
+  const [specs, allTasks, dependencies, activity] = await Promise.all([
     listSpecs(workspaceId, project.id),
     listTasks(workspaceId, project.id),
     listDependencies(workspaceId, taskId),
+    listTaskActivity(workspaceId, project.id, taskId),
   ])
 
   return (
@@ -30,6 +32,12 @@ export default async function TaskDetailPage({
       siblings={allTasks.map((t) => ({ id: t.id, title: t.title }))}
       subtasks={allTasks.filter((t) => t.parentTaskId === taskId)}
       dependencies={dependencies}
+      activity={activity.map((event) => ({
+        id: event.id,
+        title: event.title,
+        type: event.type,
+        createdAt: event.createdAt.toISOString(),
+      }))}
     />
   )
 }

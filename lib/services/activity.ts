@@ -1,5 +1,6 @@
 import { db } from "@/db"
 import { activityEvents } from "@/db/schema"
+import { and, desc, eq, sql } from "drizzle-orm"
 
 type ActorType = "user" | "agent" | "system"
 
@@ -29,4 +30,44 @@ export async function recordActivity(input: RecordActivityInput) {
     body: input.body ?? null,
     metadata: input.metadata ?? null,
   })
+}
+
+export type ActivityEvent = typeof activityEvents.$inferSelect
+
+export async function listProjectActivity(
+  workspaceId: string,
+  projectId: string,
+  limit = 20
+): Promise<ActivityEvent[]> {
+  return db
+    .select()
+    .from(activityEvents)
+    .where(
+      and(
+        eq(activityEvents.workspaceId, workspaceId),
+        eq(activityEvents.projectId, projectId)
+      )
+    )
+    .orderBy(desc(activityEvents.createdAt))
+    .limit(limit)
+}
+
+export async function listTaskActivity(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  limit = 20
+): Promise<ActivityEvent[]> {
+  return db
+    .select()
+    .from(activityEvents)
+    .where(
+      and(
+        eq(activityEvents.workspaceId, workspaceId),
+        eq(activityEvents.projectId, projectId),
+        sql`${activityEvents.metadata}->>'taskId' = ${taskId}`
+      )
+    )
+    .orderBy(desc(activityEvents.createdAt))
+    .limit(limit)
 }

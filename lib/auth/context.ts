@@ -1,3 +1,5 @@
+import { cache } from "react"
+
 import { auth } from "@/auth"
 import { getMembership, getPrimaryWorkspaceId } from "@/lib/services/workspaces"
 
@@ -22,8 +24,11 @@ export type AuthContext = {
  * Resolve the current user or throw 401. Use in services, API routes, and
  * server components that require authentication.
  */
-export async function requireUser(): Promise<AuthContext> {
-  const session = await auth()
+const getSession = cache(async () => auth())
+export const getCachedPrimaryWorkspaceId = cache(getPrimaryWorkspaceId)
+
+export const requireUser = cache(async (): Promise<AuthContext> => {
+  const session = await getSession()
   if (!session?.user?.id) {
     throw new AuthError("Not authenticated", 401)
   }
@@ -33,7 +38,7 @@ export async function requireUser(): Promise<AuthContext> {
     email: session.user.email,
     image: session.user.image,
   }
-}
+})
 
 const ROLE_RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const
 type Role = keyof typeof ROLE_RANK
@@ -42,7 +47,7 @@ type Role = keyof typeof ROLE_RANK
  * Require that the current user is a member of `workspaceId` with at least
  * `minRole`. Throws 401/403. Returns the resolved auth context + role.
  */
-export async function requireWorkspaceMember(
+export const requireWorkspaceMember = cache(async function requireWorkspaceMember(
   workspaceId: string,
   minRole: Role = "member"
 ): Promise<AuthContext & { role: Role }> {
@@ -55,19 +60,19 @@ export async function requireWorkspaceMember(
     throw new AuthError("Insufficient role", 403)
   }
   return { ...ctx, role: membership.role }
-}
+})
 
 /**
  * Resolve the current user's primary workspace, creating context for the
  * personal-first model. Throws 401 if unauthenticated, 404 if no workspace.
  */
-export async function requirePrimaryWorkspace(): Promise<
+export const requirePrimaryWorkspace = cache(async (): Promise<
   AuthContext & { workspaceId: string }
-> {
+> => {
   const ctx = await requireUser()
-  const workspaceId = await getPrimaryWorkspaceId(ctx.userId)
+  const workspaceId = await getCachedPrimaryWorkspaceId(ctx.userId)
   if (!workspaceId) {
     throw new AuthError("No workspace found for user", 404)
   }
   return { ...ctx, workspaceId }
-}
+})

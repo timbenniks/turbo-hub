@@ -11,11 +11,17 @@ import { ReadField } from "@/components/ui/field"
 import { NativeSelect } from "@/components/ui/native-select"
 import { TaskFormDialog } from "@/components/task-form-dialog"
 import { apiSend } from "@/lib/client"
-import { TASK_STATUSES } from "@/lib/enums"
+import { TASK_STATUSES, type TaskStatus } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
 import type { Task, TaskDependency } from "@/lib/services/tasks"
 
 type SpecOption = { id: string; title: string }
+type TaskActivityItem = {
+  id: string
+  title: string
+  type: string
+  createdAt: string
+}
 
 export function TaskDetail({
   slug,
@@ -24,6 +30,7 @@ export function TaskDetail({
   siblings,
   subtasks,
   dependencies,
+  activity,
 }: {
   slug: string
   task: Task
@@ -31,10 +38,29 @@ export function TaskDetail({
   siblings: { id: string; title: string }[]
   subtasks: Task[]
   dependencies: TaskDependency[]
+  activity: TaskActivityItem[]
 }) {
   const { busy, run } = useAsyncAction()
+  const [status, setStatus] = React.useOptimistic(task.status)
+  const [, startTransition] = React.useTransition()
   const titleById = new Map(siblings.map((s) => [s.id, s.title]))
   const relatedSpec = specs.find((s) => s.id === task.specId)
+
+  async function updateStatus(nextStatus: TaskStatus) {
+    const previousStatus = status
+    startTransition(() => setStatus(nextStatus))
+    const ok = await run(
+      () =>
+        apiSend(`/api/tasks/${task.id}`, "PATCH", {
+          status: nextStatus,
+        }),
+      "Status updated",
+      { refresh: false }
+    )
+    if (!ok) {
+      startTransition(() => setStatus(previousStatus))
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -57,17 +83,9 @@ export function TaskDetail({
         </div>
         <div className="flex items-center gap-2">
           <NativeSelect
-            value={task.status}
+            value={status}
             disabled={busy}
-            onChange={(e) =>
-              run(
-                () =>
-                  apiSend(`/api/tasks/${task.id}`, "PATCH", {
-                    status: e.target.value,
-                  }),
-                "Status updated"
-              )
-            }
+            onChange={(e) => updateStatus(e.target.value as TaskStatus)}
           >
             {TASK_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -190,6 +208,35 @@ export function TaskDetail({
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Activity</p>
+        {activity.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No task activity yet.</p>
+        ) : (
+          <ol className="space-y-2">
+            {activity.map((event) => (
+              <li
+                key={event.id}
+                className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm">{event.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {labelize(event.type)}
+                  </p>
+                </div>
+                <time
+                  dateTime={event.createdAt}
+                  className="shrink-0 text-xs text-muted-foreground"
+                >
+                  {new Date(event.createdAt).toLocaleDateString()}
+                </time>
+              </li>
+            ))}
+          </ol>
         )}
       </div>
     </div>

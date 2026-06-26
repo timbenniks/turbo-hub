@@ -8,6 +8,7 @@ import { bullets, sections } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
 import { getActivePlan, getPlan } from "@/lib/services/plans"
 import { createTasksFromGenerated } from "@/lib/services/tasks"
+import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type { SpecCreateInput, SpecUpdateInput } from "@/lib/validation/specs"
 
 export type Spec = typeof specs.$inferSelect
@@ -78,6 +79,7 @@ export async function createSpec(
   projectId: string,
   input: SpecCreateInput
 ): Promise<Spec> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const [row] = await db
     .insert(specs)
     .values({
@@ -121,6 +123,7 @@ export async function updateSpec(
   specId: string,
   input: SpecUpdateInput
 ): Promise<Spec | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const current = await getSpec(workspaceId, specId)
   if (!current) return null
 
@@ -161,6 +164,7 @@ export async function markSpecReady(
   workspaceId: string,
   specId: string
 ): Promise<Spec | null> {
+  await assertWorkspaceMember(ctx, workspaceId)
   const [row] = await db
     .update(specs)
     .set({ status: "ready" })

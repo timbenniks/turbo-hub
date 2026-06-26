@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge"
 import { ProjectActions } from "@/components/project-actions"
 import { ProjectTabs } from "@/components/project-tabs"
 import { labelize } from "@/lib/labels"
-import { listTags } from "@/lib/services/tags"
 import { loadProject } from "./project-context"
 
 export default async function ProjectLayout({
@@ -13,8 +12,7 @@ export default async function ProjectLayout({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const { workspaceId, project } = await loadProject(slug)
-  const tags = await listTags(workspaceId)
+  const { project } = await loadProject(slug)
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -47,7 +45,7 @@ export default async function ProjectLayout({
             ))}
           </div>
         </div>
-        <ProjectActions project={project} tags={tags} />
+        <ProjectActions project={project} />
       </div>
 
       <ProjectTabs slug={slug} />

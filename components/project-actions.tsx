@@ -13,10 +13,10 @@ type TagOption = { id: string; name: string; color: string | null }
 
 export function ProjectActions({
   project,
-  tags,
+  tags = [],
 }: {
   project: ProjectWithTags
-  tags: TagOption[]
+  tags?: TagOption[]
 }) {
   const router = useRouter()
   const [archiving, setArchiving] = React.useState(false)

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 
 import { db } from "@/db"
 import { tags, workspaceMembers, workspaces } from "@/db/schema"
+import type { AuthContext } from "@/lib/auth/context"
 import { slugify } from "@/lib/slug"
 
 const DEFAULT_TAGS: { name: string; color: string }[] = [
@@ -88,4 +89,27 @@ export async function getMembership(workspaceId: string, userId: string) {
     )
     .limit(1)
   return row ?? null
+}
+
+const ROLE_RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const
+type WorkspaceRole = keyof typeof ROLE_RANK
+
+export class WorkspaceAccessError extends Error {
+  status = 403
+
+  constructor(message = "Insufficient workspace access") {
+    super(message)
+    this.name = "WorkspaceAccessError"
+  }
+}
+
+export async function assertWorkspaceMember(
+  ctx: AuthContext,
+  workspaceId: string,
+  minRole: WorkspaceRole = "member"
+) {
+  const membership = await getMembership(workspaceId, ctx.userId)
+  if (!membership || ROLE_RANK[membership.role] < ROLE_RANK[minRole]) {
+    throw new WorkspaceAccessError()
+  }
 }
