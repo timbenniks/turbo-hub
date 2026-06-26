@@ -1,0 +1,73 @@
+import { auth } from "@/auth"
+import { getMembership, getPrimaryWorkspaceId } from "@/lib/services/workspaces"
+
+export class AuthError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message)
+    this.name = "AuthError"
+  }
+}
+
+export type AuthContext = {
+  userId: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}
+
+/**
+ * Resolve the current user or throw 401. Use in services, API routes, and
+ * server components that require authentication.
+ */
+export async function requireUser(): Promise<AuthContext> {
+  const session = await auth()
+  if (!session?.user?.id) {
+    throw new AuthError("Not authenticated", 401)
+  }
+  return {
+    userId: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    image: session.user.image,
+  }
+}
+
+const ROLE_RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const
+type Role = keyof typeof ROLE_RANK
+
+/**
+ * Require that the current user is a member of `workspaceId` with at least
+ * `minRole`. Throws 401/403. Returns the resolved auth context + role.
+ */
+export async function requireWorkspaceMember(
+  workspaceId: string,
+  minRole: Role = "member"
+): Promise<AuthContext & { role: Role }> {
+  const ctx = await requireUser()
+  const membership = await getMembership(workspaceId, ctx.userId)
+  if (!membership) {
+    throw new AuthError("Not a member of this workspace", 403)
+  }
+  if (ROLE_RANK[membership.role] < ROLE_RANK[minRole]) {
+    throw new AuthError("Insufficient role", 403)
+  }
+  return { ...ctx, role: membership.role }
+}
+
+/**
+ * Resolve the current user's primary workspace, creating context for the
+ * personal-first model. Throws 401 if unauthenticated, 404 if no workspace.
+ */
+export async function requirePrimaryWorkspace(): Promise<
+  AuthContext & { workspaceId: string }
+> {
+  const ctx = await requireUser()
+  const workspaceId = await getPrimaryWorkspaceId(ctx.userId)
+  if (!workspaceId) {
+    throw new AuthError("No workspace found for user", 404)
+  }
+  return { ...ctx, workspaceId }
+}
