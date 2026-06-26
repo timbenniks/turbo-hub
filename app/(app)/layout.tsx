@@ -5,26 +5,20 @@ import { AppNav } from "@/components/app-nav"
 import { UserMenu } from "@/components/user-menu"
 import { Toaster } from "@/components/ui/sonner"
 import { requireUser } from "@/lib/auth/context"
-import { bootstrapWorkspace, getPrimaryWorkspaceId } from "@/lib/services/workspaces"
+import { timeAsync } from "@/lib/timing"
+
+// Co-locate these functions with the Neon database (us-east-1) to avoid
+// cross-region round-trip latency on every query. No effect in local dev.
+export const preferredRegion = "iad1"
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  return timeAsync("render.app.layout", async () => {
   const user = await requireUser().catch(() => null)
   if (!user) redirect("/login")
-
-  // Safety net: ensure a workspace exists even for users created before the
-  // bootstrap hook landed.
-  const workspaceId = await getPrimaryWorkspaceId(user.userId)
-  if (!workspaceId) {
-    await bootstrapWorkspace({
-      id: user.userId,
-      name: user.name,
-      email: user.email,
-    })
-  }
 
   return (
     <div className="flex min-h-svh">
@@ -50,4 +44,5 @@ export default async function AppLayout({
       <Toaster />
     </div>
   )
+  })
 }

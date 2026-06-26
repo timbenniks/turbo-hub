@@ -159,6 +159,7 @@ export const workspaceMembers = pgTable(
       m.userId
     ),
     index("workspace_members_user_idx").on(m.userId),
+    index("workspace_members_user_workspace_idx").on(m.userId, m.workspaceId),
   ]
 )
 
@@ -198,6 +199,7 @@ export const projects = pgTable(
     uniqueIndex("projects_workspace_slug_idx").on(p.workspaceId, p.slug),
     index("projects_workspace_idx").on(p.workspaceId),
     index("projects_status_idx").on(p.status),
+    index("projects_slug_idx").on(p.slug),
   ]
 )
 
@@ -298,7 +300,14 @@ export const plans = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (p) => [index("plans_project_idx").on(p.projectId)]
+  (p) => [
+    index("plans_project_idx").on(p.projectId),
+    index("plans_workspace_project_status_idx").on(
+      p.workspaceId,
+      p.projectId,
+      p.status
+    ),
+  ]
 )
 
 // ---------------------------------------------------------------------------
@@ -408,6 +417,11 @@ export const tasks = pgTable(
   },
   (t) => [
     index("tasks_project_idx").on(t.projectId),
+    index("tasks_workspace_project_status_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.status
+    ),
     index("tasks_spec_idx").on(t.specId),
     index("tasks_parent_idx").on(t.parentTaskId),
     index("tasks_status_idx").on(t.status),

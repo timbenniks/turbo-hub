@@ -4,6 +4,7 @@ import { TaskDetail } from "@/components/task-detail"
 import { listTaskActivity } from "@/lib/services/activity"
 import { listSpecs } from "@/lib/services/specs"
 import { getTask, listDependencies, listTasks } from "@/lib/services/tasks"
+import { timeAsync } from "@/lib/timing"
 import { loadProject } from "../../project-context"
 
 export default async function TaskDetailPage({
@@ -11,6 +12,7 @@ export default async function TaskDetailPage({
 }: {
   params: Promise<{ slug: string; taskId: string }>
 }) {
+  return timeAsync("render.project.task-detail", async () => {
   const { slug, taskId } = await params
   const { workspaceId, project } = await loadProject(slug)
 
@@ -40,4 +42,5 @@ export default async function TaskDetailPage({
       }))}
     />
   )
+  })
 }

@@ -1,7 +1,12 @@
 import { cache } from "react"
 
 import { auth } from "@/auth"
-import { getMembership, getPrimaryWorkspaceId } from "@/lib/services/workspaces"
+import {
+  bootstrapWorkspace,
+  getMembership,
+  getPrimaryWorkspaceId,
+} from "@/lib/services/workspaces"
+import { timeAsync } from "@/lib/timing"
 
 export class AuthError extends Error {
   constructor(
@@ -24,8 +29,10 @@ export type AuthContext = {
  * Resolve the current user or throw 401. Use in services, API routes, and
  * server components that require authentication.
  */
-const getSession = cache(async () => auth())
-export const getCachedPrimaryWorkspaceId = cache(getPrimaryWorkspaceId)
+const getSession = cache(async () => timeAsync("auth.session", () => auth()))
+export const getCachedPrimaryWorkspaceId = cache((userId: string) =>
+  timeAsync("workspace.primary", () => getPrimaryWorkspaceId(userId))
+)
 
 export const requireUser = cache(async (): Promise<AuthContext> => {
   const session = await getSession()
@@ -52,7 +59,9 @@ export const requireWorkspaceMember = cache(async function requireWorkspaceMembe
   minRole: Role = "member"
 ): Promise<AuthContext & { role: Role }> {
   const ctx = await requireUser()
-  const membership = await getMembership(workspaceId, ctx.userId)
+  const membership = await timeAsync("workspace.membership", () =>
+    getMembership(workspaceId, ctx.userId)
+  )
   if (!membership) {
     throw new AuthError("Not a member of this workspace", 403)
   }
@@ -70,9 +79,14 @@ export const requirePrimaryWorkspace = cache(async (): Promise<
   AuthContext & { workspaceId: string }
 > => {
   const ctx = await requireUser()
-  const workspaceId = await getCachedPrimaryWorkspaceId(ctx.userId)
-  if (!workspaceId) {
-    throw new AuthError("No workspace found for user", 404)
-  }
+  const workspaceId =
+    (await getCachedPrimaryWorkspaceId(ctx.userId)) ??
+    (await timeAsync("workspace.bootstrap", () =>
+      bootstrapWorkspace({
+        id: ctx.userId,
+        name: ctx.name,
+        email: ctx.email,
+      })
+    ))
   return { ...ctx, workspaceId }
 })

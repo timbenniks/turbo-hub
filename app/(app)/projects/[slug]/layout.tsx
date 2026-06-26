@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { ProjectActions } from "@/components/project-actions"
 import { ProjectTabs } from "@/components/project-tabs"
 import { labelize } from "@/lib/labels"
+import { timeAsync } from "@/lib/timing"
 import { loadProject } from "./project-context"
 
 export default async function ProjectLayout({
@@ -11,6 +12,7 @@ export default async function ProjectLayout({
   children: React.ReactNode
   params: Promise<{ slug: string }>
 }) {
+  return timeAsync("render.project.layout", async () => {
   const { slug } = await params
   const { project } = await loadProject(slug)
 
@@ -53,4 +55,5 @@ export default async function ProjectLayout({
       {children}
     </div>
   )
+  })
 }

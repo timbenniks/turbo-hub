@@ -1,7 +1,7 @@
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 
 import { db } from "@/db"
-import { projectTags, projects, tags } from "@/db/schema"
+import { projectTags, projects, tags, workspaceMembers } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
 import { uniqueSlug } from "@/lib/slug"
 import { recordActivity } from "@/lib/services/activity"
@@ -129,6 +129,48 @@ export async function getProjectBySlug(
     workspaceId,
     and(eq(projects.workspaceId, workspaceId), eq(projects.slug, slug))
   )
+}
+
+export async function getProjectBySlugForUser(
+  userId: string,
+  slug: string
+): Promise<ProjectWithTags | null> {
+  const rows = await db
+    .select({
+      project: projects,
+      tag: {
+        id: tags.id,
+        name: tags.name,
+        color: tags.color,
+      },
+    })
+    .from(projects)
+    .innerJoin(
+      workspaceMembers,
+      and(
+        eq(workspaceMembers.workspaceId, projects.workspaceId),
+        eq(workspaceMembers.userId, userId)
+      )
+    )
+    .leftJoin(
+      projectTags,
+      and(
+        eq(projectTags.workspaceId, projects.workspaceId),
+        eq(projectTags.projectId, projects.id)
+      )
+    )
+    .leftJoin(tags, eq(tags.id, projectTags.tagId))
+    .where(and(eq(projects.slug, slug), isNull(projects.archivedAt)))
+
+  const project = rows[0]?.project
+  if (!project) return null
+
+  return {
+    ...project,
+    tags: rows
+      .map((row) => row.tag)
+      .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag?.id)),
+  }
 }
 
 export async function getProjectById(

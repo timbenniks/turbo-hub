@@ -8,6 +8,7 @@ import { ProjectsFilter } from "@/components/projects-filter"
 import { requirePrimaryWorkspace } from "@/lib/auth/context"
 import { listProjects } from "@/lib/services/projects"
 import { listTags } from "@/lib/services/tags"
+import { timeAsync } from "@/lib/timing"
 import { projectListFiltersSchema } from "@/lib/validation/projects"
 
 export default async function ProjectsPage({
@@ -15,6 +16,7 @@ export default async function ProjectsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  return timeAsync("render.projects", async () => {
   const ctx = await requirePrimaryWorkspace()
   const raw = await searchParams
   const filters = projectListFiltersSchema.parse(raw)
@@ -56,4 +58,5 @@ export default async function ProjectsPage({
       )}
     </div>
   )
+  })
 }

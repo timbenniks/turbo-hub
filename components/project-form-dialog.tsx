@@ -52,6 +52,10 @@ type ExistingProject = {
   tags: TagOption[]
 }
 
+type ProjectResponse = {
+  slug: string
+}
+
 type Props = {
   tags?: TagOption[]
   project?: ExistingProject
@@ -139,10 +143,15 @@ export function ProjectFormDialog({ tags = EMPTY_TAGS, project, trigger }: Props
       toast.error(body.error ?? "Something went wrong")
       return
     }
+    const savedProject = (await res.json()) as ProjectResponse
     toast.success(isEdit ? "Project updated" : "Project created")
     setOpen(false)
-    if (!isEdit) reset()
-    router.refresh()
+    if (isEdit) {
+      router.refresh()
+      return
+    }
+    reset()
+    router.push(`/projects/${savedProject.slug}`)
   }
 
   return (

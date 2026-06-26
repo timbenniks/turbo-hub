@@ -13,8 +13,10 @@ import { ProjectFormDialog } from "@/components/project-form-dialog"
 import { requirePrimaryWorkspace } from "@/lib/auth/context"
 import { listRecentProjects } from "@/lib/services/projects"
 import { countTasksByStatus } from "@/lib/services/tasks"
+import { timeAsync } from "@/lib/timing"
 
 export default async function DashboardPage() {
+  return timeAsync("render.dashboard", async () => {
   const ctx = await requirePrimaryWorkspace()
   const [recent, blockedTaskCount] = await Promise.all([
     listRecentProjects(ctx.workspaceId),
@@ -88,4 +90,5 @@ export default async function DashboardPage() {
       </section>
     </div>
   )
+  })
 }

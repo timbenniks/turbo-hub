@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { getActivePlan } from "@/lib/services/plans"
 import { getProjectTaskCounts } from "@/lib/services/tasks"
+import { timeAsync } from "@/lib/timing"
 import { loadProject } from "./project-context"
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -19,6 +20,7 @@ export default async function ProjectOverviewPage({
 }: {
   params: Promise<{ slug: string }>
 }) {
+  return timeAsync("render.project.overview", async () => {
   const { slug } = await params
   const { workspaceId, project } = await loadProject(slug)
   const [activePlan, taskCounts] = await Promise.all([
@@ -62,4 +64,5 @@ export default async function ProjectOverviewPage({
       </dl>
     </div>
   )
+  })
 }

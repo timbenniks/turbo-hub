@@ -1,6 +1,7 @@
 import { TasksManager } from "@/components/tasks-manager"
 import { listSpecs } from "@/lib/services/specs"
 import { listTasks } from "@/lib/services/tasks"
+import { timeAsync } from "@/lib/timing"
 import { loadProject } from "../project-context"
 
 export default async function ProjectTasksPage({
@@ -8,6 +9,7 @@ export default async function ProjectTasksPage({
 }: {
   params: Promise<{ slug: string }>
 }) {
+  return timeAsync("render.project.tasks", async () => {
   const { slug } = await params
   const { workspaceId, project } = await loadProject(slug)
   const [tasks, specs] = await Promise.all([
@@ -23,4 +25,5 @@ export default async function ProjectTasksPage({
       specs={specs.map((s) => ({ id: s.id, title: s.title }))}
     />
   )
+  })
 }
