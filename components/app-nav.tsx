@@ -41,7 +41,7 @@ const NAV: NavItem[] = [
     enabled: false,
   },
   { href: "/integrations", label: "Integrations", icon: Plug, enabled: false },
-  { href: "/settings", label: "Settings", icon: Settings, enabled: false },
+  { href: "/settings", label: "Settings", icon: Settings, enabled: true },
 ]
 
 export function AppNav() {

@@ -29,6 +29,13 @@
       "when": 1782495737712,
       "tag": "0003_panoramic_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782501324545,
+      "tag": "0004_curvy_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

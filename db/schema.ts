@@ -84,6 +84,27 @@ export const users = pgTable("users", {
   updatedAt: updatedAt(),
 })
 
+/**
+ * Personal access tokens for programmatic auth (external agents, CLIs, MCP).
+ * The raw token is shown once on creation; only its SHA-256 hash is stored.
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    hashedKey: text("hashed_key").notNull().unique(),
+    // Short, non-secret identifier shown in the UI (e.g. "thub_a1b2c3d").
+    prefix: text("prefix").notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (k) => [index("api_keys_user_idx").on(k.userId)]
+)
+
 export const accounts = pgTable(
   "accounts",
   {
