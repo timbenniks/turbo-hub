@@ -3,6 +3,7 @@ import { and, desc, eq, ne } from "drizzle-orm"
 import { db } from "@/db"
 import { plans, projects } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
+import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
 import { generatePlan } from "@/lib/ai/generate"
 import { bullets } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
@@ -40,18 +41,24 @@ export async function getActivePlan(
   workspaceId: string,
   projectId: string
 ): Promise<Plan | null> {
-  const [row] = await db
-    .select()
-    .from(plans)
-    .where(
-      and(
-        eq(plans.workspaceId, workspaceId),
-        eq(plans.projectId, projectId),
-        eq(plans.status, "active")
-      )
-    )
-    .limit(1)
-  return row ?? null
+  return cachedRead(
+    async () => {
+      const [row] = await db
+        .select()
+        .from(plans)
+        .where(
+          and(
+            eq(plans.workspaceId, workspaceId),
+            eq(plans.projectId, projectId),
+            eq(plans.status, "active")
+          )
+        )
+        .limit(1)
+      return row ?? null
+    },
+    ["getActivePlan", workspaceId, projectId],
+    [cacheTags.project(workspaceId, projectId)]
+  )
 }
 
 export async function createPlan(
@@ -85,6 +92,7 @@ export async function createPlan(
     type: "plan.created",
     title: `Created plan "${row.title}"`,
   })
+  invalidateTags(cacheTags.project(workspaceId, projectId))
   return row
 }
 
@@ -124,6 +132,7 @@ export async function updatePlan(
     type: "plan.updated",
     title: `Updated plan "${row.title}"`,
   })
+  invalidateTags(cacheTags.project(workspaceId, row.projectId))
   return row
 }
 
@@ -175,6 +184,7 @@ export async function markPlanActive(
     type: "plan.activated",
     title: `Activated plan "${plan.title}"`,
   })
+  invalidateTags(cacheTags.project(workspaceId, plan.projectId))
   return row
 }
 

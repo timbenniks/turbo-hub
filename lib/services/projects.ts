@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { projectTags, projects, tags, workspaceMembers } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
+import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
 import { uniqueSlug } from "@/lib/slug"
 import { recordActivity } from "@/lib/services/activity"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
@@ -98,27 +99,41 @@ export async function listProjects(
     )
   }
 
-  const rows = await db
-    .select()
-    .from(projects)
-    .where(and(...conditions))
-    .orderBy(desc(projects.updatedAt))
+  return cachedRead(
+    async () => {
+      const rows = await db
+        .select()
+        .from(projects)
+        .where(and(...conditions))
+        .orderBy(desc(projects.updatedAt))
 
-  return attachTags(workspaceId, rows)
+      return attachTags(workspaceId, rows)
+    },
+    ["listProjects", workspaceId, JSON.stringify(filters)],
+    [cacheTags.projectsList(workspaceId)]
+  )
 }
 
 export async function listRecentProjects(
   workspaceId: string,
   limit = 6
 ): Promise<ProjectWithTags[]> {
-  const rows = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.workspaceId, workspaceId), isNull(projects.archivedAt)))
-    .orderBy(desc(projects.updatedAt))
-    .limit(limit)
+  return cachedRead(
+    async () => {
+      const rows = await db
+        .select()
+        .from(projects)
+        .where(
+          and(eq(projects.workspaceId, workspaceId), isNull(projects.archivedAt))
+        )
+        .orderBy(desc(projects.updatedAt))
+        .limit(limit)
 
-  return attachTags(workspaceId, rows)
+      return attachTags(workspaceId, rows)
+    },
+    ["listRecentProjects", workspaceId, String(limit)],
+    [cacheTags.projectsList(workspaceId)]
+  )
 }
 
 export async function getProjectBySlug(
@@ -135,42 +150,48 @@ export async function getProjectBySlugForUser(
   userId: string,
   slug: string
 ): Promise<ProjectWithTags | null> {
-  const rows = await db
-    .select({
-      project: projects,
-      tag: {
-        id: tags.id,
-        name: tags.name,
-        color: tags.color,
-      },
-    })
-    .from(projects)
-    .innerJoin(
-      workspaceMembers,
-      and(
-        eq(workspaceMembers.workspaceId, projects.workspaceId),
-        eq(workspaceMembers.userId, userId)
-      )
-    )
-    .leftJoin(
-      projectTags,
-      and(
-        eq(projectTags.workspaceId, projects.workspaceId),
-        eq(projectTags.projectId, projects.id)
-      )
-    )
-    .leftJoin(tags, eq(tags.id, projectTags.tagId))
-    .where(and(eq(projects.slug, slug), isNull(projects.archivedAt)))
+  return cachedRead(
+    async () => {
+      const rows = await db
+        .select({
+          project: projects,
+          tag: {
+            id: tags.id,
+            name: tags.name,
+            color: tags.color,
+          },
+        })
+        .from(projects)
+        .innerJoin(
+          workspaceMembers,
+          and(
+            eq(workspaceMembers.workspaceId, projects.workspaceId),
+            eq(workspaceMembers.userId, userId)
+          )
+        )
+        .leftJoin(
+          projectTags,
+          and(
+            eq(projectTags.workspaceId, projects.workspaceId),
+            eq(projectTags.projectId, projects.id)
+          )
+        )
+        .leftJoin(tags, eq(tags.id, projectTags.tagId))
+        .where(and(eq(projects.slug, slug), isNull(projects.archivedAt)))
 
-  const project = rows[0]?.project
-  if (!project) return null
+      const project = rows[0]?.project
+      if (!project) return null
 
-  return {
-    ...project,
-    tags: rows
-      .map((row) => row.tag)
-      .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag?.id)),
-  }
+      return {
+        ...project,
+        tags: rows
+          .map((row) => row.tag)
+          .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag?.id)),
+      }
+    },
+    ["getProjectBySlugForUser", userId, slug],
+    [cacheTags.projectBySlug(slug)]
+  )
 }
 
 export async function getProjectById(
@@ -228,6 +249,8 @@ export async function createProject(
     type: "project.created",
     title: `Created project "${row.name}"`,
   })
+
+  invalidateTags(cacheTags.projectsList(workspaceId))
 
   const [withTags] = await attachTags(workspaceId, [row])
   return withTags
@@ -288,6 +311,12 @@ export async function updateProject(
     title: `Updated project "${row.name}"`,
   })
 
+  invalidateTags(
+    cacheTags.projectsList(workspaceId),
+    cacheTags.project(workspaceId, row.id),
+    cacheTags.projectBySlug(row.slug)
+  )
+
   const [withTags] = await attachTags(workspaceId, [row])
   return withTags
 }
@@ -323,6 +352,12 @@ export async function archiveProject(
     type: "project.archived",
     title: `Archived project "${row.name}"`,
   })
+
+  invalidateTags(
+    cacheTags.projectsList(workspaceId),
+    cacheTags.project(workspaceId, row.id),
+    cacheTags.projectBySlug(row.slug)
+  )
 
   const [withTags] = await attachTags(workspaceId, [row])
   return withTags

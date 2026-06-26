@@ -3,6 +3,7 @@ import { and, asc, count, eq, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { taskDependencies, tasks } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
+import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
 import type { TaskGen } from "@/lib/ai/schemas"
 import { bullets } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
@@ -17,36 +18,61 @@ import type {
 export type Task = typeof tasks.$inferSelect
 export type TaskDependency = typeof taskDependencies.$inferSelect
 
+/** Drop cached task aggregates after a task write (counts + blocked total). */
+function revalidateTaskCounts(workspaceId: string, projectId: string) {
+  invalidateTags(
+    cacheTags.project(workspaceId, projectId),
+    cacheTags.workspaceTasks(workspaceId)
+  )
+}
+
 export async function countTasksByStatus(
   workspaceId: string,
   status: Task["status"]
 ): Promise<number> {
-  const [row] = await db
-    .select({ value: count() })
-    .from(tasks)
-    .where(and(eq(tasks.workspaceId, workspaceId), eq(tasks.status, status)))
+  return cachedRead(
+    async () => {
+      const [row] = await db
+        .select({ value: count() })
+        .from(tasks)
+        .where(
+          and(eq(tasks.workspaceId, workspaceId), eq(tasks.status, status))
+        )
 
-  return row?.value ?? 0
+      return row?.value ?? 0
+    },
+    ["countTasksByStatus", workspaceId, status],
+    [cacheTags.workspaceTasks(workspaceId)]
+  )
 }
 
 export async function getProjectTaskCounts(
   workspaceId: string,
   projectId: string
 ): Promise<{ total: number; open: number }> {
-  const [row] = await db
-    .select({
-      total: count(),
-      open: sql<number>`count(*) filter (where ${tasks.status} not in ('done', 'canceled'))`,
-    })
-    .from(tasks)
-    .where(
-      and(eq(tasks.workspaceId, workspaceId), eq(tasks.projectId, projectId))
-    )
+  return cachedRead(
+    async () => {
+      const [row] = await db
+        .select({
+          total: count(),
+          open: sql<number>`count(*) filter (where ${tasks.status} not in ('done', 'canceled'))`,
+        })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.workspaceId, workspaceId),
+            eq(tasks.projectId, projectId)
+          )
+        )
 
-  return {
-    total: Number(row?.total ?? 0),
-    open: Number(row?.open ?? 0),
-  }
+      return {
+        total: Number(row?.total ?? 0),
+        open: Number(row?.open ?? 0),
+      }
+    },
+    ["getProjectTaskCounts", workspaceId, projectId],
+    [cacheTags.project(workspaceId, projectId)]
+  )
 }
 
 export async function listTasks(
@@ -114,6 +140,7 @@ export async function createTask(
     title: `Created task "${row.title}"`,
     metadata: { taskId: row.id },
   })
+  revalidateTaskCounts(workspaceId, projectId)
   return row
 }
 
@@ -158,6 +185,7 @@ export async function createTasksFromGenerated(
     )
   )
 
+  revalidateTaskCounts(workspaceId, projectId)
   return created
 }
 
@@ -204,6 +232,7 @@ export async function updateTask(
     title: `Updated task "${row.title}"`,
     metadata: { taskId: row.id },
   })
+  revalidateTaskCounts(workspaceId, row.projectId)
   return row
 }
 
