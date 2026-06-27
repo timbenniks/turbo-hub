@@ -13,6 +13,13 @@ export default async function ProjectSpecsPage({
   const { workspaceId, project } = await loadProject(slug)
   const specs = await listSpecs(workspaceId, project.id)
 
-  return <SpecsManager slug={slug} projectId={project.id} specs={specs} />
+  return (
+    <SpecsManager
+      slug={slug}
+      projectName={project.name}
+      projectId={project.id}
+      specs={specs}
+    />
+  )
   })
 }

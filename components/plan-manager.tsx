@@ -5,15 +5,18 @@ import { ClipboardCopy, ClipboardPaste, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Field, ReadField } from "@/components/ui/field"
 import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
 import { Markdown } from "@/components/ui/markdown"
+import { ReadableContent } from "@/components/ui/readable-content"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Textarea } from "@/components/ui/textarea"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
+import Link from "next/link"
 import { apiSend } from "@/lib/client"
-import { labelize } from "@/lib/labels"
 import {
   buildExternalPlanPrompt,
   parsePlanMarkdown,
@@ -30,143 +33,205 @@ const PLAN_FIELDS = [
   { name: "openQuestions", label: "Open questions" },
 ] as const
 
+type SpecRef = {
+  id: string
+  title: string
+  status: string
+  planId: string | null
+}
+
 export function PlanManager({
+  slug,
   projectId,
   project,
   plans,
+  specs,
 }: {
+  slug: string
   projectId: string
   project: PlanContext
   plans: Plan[]
+  specs: SpecRef[]
 }) {
   const { busy, run } = useAsyncAction()
 
+  const headerActions = (
+    <>
+      <ExternalPlanDialog
+        project={project}
+        disabled={busy}
+        onSubmit={(values) =>
+          run(
+            () => apiSend(`/api/projects/${projectId}/plans`, "POST", values),
+            "Plan added"
+          )
+        }
+      />
+      <PlanFormDialog
+        title="New plan"
+        trigger={
+          <Button variant="outline" size="sm">
+            <Plus />
+            New plan
+          </Button>
+        }
+        disabled={busy}
+        onSubmit={(values) =>
+          run(
+            () => apiSend(`/api/projects/${projectId}/plans`, "POST", values),
+            "Plan created"
+          )
+        }
+      />
+    </>
+  )
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Plans</h2>
-        <div className="flex gap-2">
-          <ExternalPlanDialog
-            project={project}
-            disabled={busy}
-            onSubmit={(values) =>
-              run(
-                () =>
-                  apiSend(`/api/projects/${projectId}/plans`, "POST", values),
-                "Plan added"
-              )
-            }
-          />
-          <PlanFormDialog
-            title="New plan"
-            trigger={
-              <Button variant="outline">
-                <Plus />
-                New plan
-              </Button>
-            }
-            disabled={busy}
-            onSubmit={(values) =>
-              run(
-                () =>
-                  apiSend(`/api/projects/${projectId}/plans`, "POST", values),
-                "Plan created"
-              )
-            }
-          />
-        </div>
-      </div>
+    <div className="space-y-6">
+      <CompactProjectHeader
+        slug={slug}
+        projectName={project.name}
+        title="Plan"
+        meta={
+          <span>
+            {plans.length === 0
+              ? "No plans yet"
+              : `${plans.length} plan${plans.length === 1 ? "" : "s"}`}
+          </span>
+        }
+        actions={headerActions}
+      />
 
       {plans.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No plans yet. Paste one from your agent, or create one manually.
-        </p>
+        <HelpfulEmptyState
+          title="No plans yet"
+          description="The plan is the strategic document for this project: what you're building, and what you've agreed not to build. Paste one from your agent, or create one manually."
+        />
       ) : (
-        <div className="space-y-4">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className="space-y-3 rounded-xl border border-border p-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-medium">{plan.title}</h3>
-                  <Badge
-                    variant={plan.status === "active" ? "default" : "secondary"}
-                  >
-                    {labelize(plan.status)}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    v{plan.version}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  {plan.status !== "active" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
+        <div className="space-y-10">
+          {plans.map((plan) => {
+            const relatedSpecs = specs.filter((s) => s.planId === plan.id)
+            return (
+              <div
+                key={plan.id}
+                className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_15rem]"
+              >
+                {/* Document */}
+                <ReadableContent>
+                  <h2 className="text-xl font-semibold tracking-tight">
+                    {plan.title}
+                  </h2>
+                  {plan.summary && <Markdown>{plan.summary}</Markdown>}
+                  {plan.body && <Markdown>{plan.body}</Markdown>}
+                  {PLAN_FIELDS.filter((f) => f.name !== "summary").map((f) => (
+                    <ReadField
+                      key={f.name}
+                      label={f.label}
+                      value={plan[f.name]}
+                    />
+                  ))}
+                </ReadableContent>
+
+                {/* Metadata + actions rail */}
+                <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-4 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Status</span>
+                      <StatusChip value={plan.status} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Version</span>
+                      <span className="font-mono text-xs">v{plan.version}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Updated</span>
+                      <span className="text-xs">
+                        {new Date(plan.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[0.8125rem] font-medium text-muted-foreground">
+                      Related specs
+                    </p>
+                    {relatedSpecs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">None yet.</p>
+                    ) : (
+                      <ul className="space-y-1.5 text-sm">
+                        {relatedSpecs.map((s) => (
+                          <li key={s.id} className="flex items-center gap-2">
+                            <StatusChip value={s.status} />
+                            <Link
+                              href={`/projects/${slug}/specs/${s.id}`}
+                              className="truncate hover:underline"
+                            >
+                              {s.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {plan.status !== "active" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          run(
+                            () => apiSend(`/api/plans/${plan.id}/activate`),
+                            "Plan activated"
+                          )
+                        }
+                      >
+                        Mark active
+                      </Button>
+                    )}
+                    <PlanFormDialog
+                      title="Edit plan"
+                      plan={plan}
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          Edit
+                        </Button>
+                      }
                       disabled={busy}
-                      onClick={() =>
+                      onSubmit={(values) =>
                         run(
-                          () => apiSend(`/api/plans/${plan.id}/activate`),
-                          "Plan activated"
+                          () =>
+                            apiSend(`/api/plans/${plan.id}`, "PATCH", values),
+                          "Plan updated"
                         )
                       }
-                    >
-                      Mark active
-                    </Button>
-                  )}
-                  <PlanFormDialog
-                    title="Edit plan"
-                    plan={plan}
-                    trigger={
-                      <Button size="sm" variant="ghost">
-                        Edit
-                      </Button>
-                    }
-                    disabled={busy}
-                    onSubmit={(values) =>
-                      run(
-                        () => apiSend(`/api/plans/${plan.id}`, "PATCH", values),
-                        "Plan updated"
-                      )
-                    }
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        !confirm(
-                          `Delete plan "${plan.title}"? This can't be undone.`
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          !confirm(
+                            `Delete plan "${plan.title}"? This can't be undone.`
+                          )
                         )
-                      )
-                        return
-                      run(
-                        () => apiSend(`/api/plans/${plan.id}`, "DELETE"),
-                        "Plan deleted"
-                      )
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
+                          return
+                        run(
+                          () => apiSend(`/api/plans/${plan.id}`, "DELETE"),
+                          "Plan deleted"
+                        )
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </aside>
               </div>
-              {plan.summary && <Markdown>{plan.summary}</Markdown>}
-              {plan.body && <Markdown>{plan.body}</Markdown>}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {PLAN_FIELDS.filter((f) => f.name !== "summary").map((f) => (
-                  <ReadField
-                    key={f.name}
-                    label={f.label}
-                    value={plan[f.name]}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

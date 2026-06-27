@@ -12,6 +12,7 @@ import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
 import { Markdown } from "@/components/ui/markdown"
 import { Textarea } from "@/components/ui/textarea"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
 import { apiSend } from "@/lib/client"
 
 /** Subset of a pattern the UI renders (date fields are ignored). */
@@ -141,10 +142,10 @@ export function PatternsManager({ initial }: { initial: PatternView[] }) {
       </form>
 
       {items.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No patterns found. Create one, promote a learning, or have your agent
-          add it via MCP.
-        </p>
+        <HelpfulEmptyState
+          title="No patterns found"
+          description="Patterns are reusable knowledge that compounds across projects — promote a learning, create one directly, or have your agent add it via MCP."
+        />
       ) : (
         <div className="space-y-3">
           {items.map((p) => (
@@ -154,7 +155,7 @@ export function PatternsManager({ initial }: { initial: PatternView[] }) {
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium">{p.summary}</h3>
+                  <h3 className="text-[0.9375rem] font-semibold">{p.summary}</h3>
                   {p.type && <Badge variant="secondary">{p.type}</Badge>}
                   <Badge variant="outline">used {p.usageCount}×</Badge>
                 </div>

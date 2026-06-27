@@ -1,7 +1,8 @@
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
-import { labelize } from "@/lib/labels"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
+import { StatusChip } from "@/components/ui/status-chip"
 import { listPullRequestsWithRepository } from "@/lib/services/pullRequests"
 import { timeAsync } from "@/lib/timing"
 import { loadProject } from "../project-context"
@@ -20,19 +21,27 @@ export default async function ProjectPullRequestsPage({
     )
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold">Pull Requests</h2>
-          <p className="text-sm text-muted-foreground">
-            Pull requests manually linked to this project or its runs.
-          </p>
-        </div>
+      <div className="space-y-6">
+        <CompactProjectHeader
+          slug={slug}
+          projectName={project.name}
+          title="PRs"
+          meta={
+            <span>
+              {pullRequests.length === 0
+                ? "No PRs yet"
+                : `${pullRequests.length} PR${
+                    pullRequests.length === 1 ? "" : "s"
+                  }`}
+            </span>
+          }
+        />
 
         {pullRequests.length === 0 ? (
-          <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-            No pull requests linked yet. Link one from a run detail page or via
-            MCP.
-          </p>
+          <HelpfulEmptyState
+            title="No PRs yet"
+            description="Linked PRs let you track the code a run produced — review state, branch, and merge status — without leaving the hub. Link one from a run detail page or via MCP."
+          />
         ) : (
           <div className="divide-y divide-border rounded-xl border border-border">
             {pullRequests.map((pullRequest) => {
@@ -50,9 +59,7 @@ export default async function ProjectPullRequestsPage({
                       {new Date(pullRequest.updatedAt).toLocaleString()}
                     </p>
                   </div>
-                  <Badge variant="secondary">
-                    {labelize(pullRequest.state)}
-                  </Badge>
+                  <StatusChip value={pullRequest.state} />
                 </>
               )
 

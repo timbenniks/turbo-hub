@@ -28,11 +28,18 @@ export default async function SpecDetailPage({
     ])
     const specTasks = tasks.filter((task) => task.specId === spec.id)
     const specTaskIds = new Set(specTasks.map((task) => task.id))
+    const prByTaskId: Record<string, { state: string; url: string | null }> = {}
+    for (const pr of pullRequests) {
+      if (pr.taskId && specTaskIds.has(pr.taskId) && !prByTaskId[pr.taskId]) {
+        prByTaskId[pr.taskId] = { state: pr.state, url: pr.url }
+      }
+    }
 
     return (
       <SpecDetail
         slug={slug}
         project={{ name: project.name }}
+        hasRepository={Boolean(project.repositoryId)}
         plan={(() => {
           const plan =
             plans.find((row) => row.id === spec.planId) ??
@@ -48,7 +55,9 @@ export default async function SpecDetailPage({
           title: task.title,
           status: task.status,
           priority: task.priority,
+          runnerPreference: task.runnerPreference,
         }))}
+        prByTaskId={prByTaskId}
         runs={runs
           .filter((run) => run.taskId && specTaskIds.has(run.taskId))
           .map((run) => ({

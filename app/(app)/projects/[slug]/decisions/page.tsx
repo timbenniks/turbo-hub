@@ -13,6 +13,13 @@ export default async function ProjectDecisionsPage({
     const { workspaceId, project } = await loadProject(slug)
     const decisions = await listDecisions(workspaceId, project.id)
 
-    return <DecisionsManager projectId={project.id} decisions={decisions} />
+    return (
+      <DecisionsManager
+        slug={slug}
+        projectName={project.name}
+        projectId={project.id}
+        decisions={decisions}
+      />
+    )
   })
 }

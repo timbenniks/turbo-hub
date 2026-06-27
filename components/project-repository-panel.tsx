@@ -35,10 +35,12 @@ export function ProjectRepositoryPanel({
   }
 
   return (
-    <section className="space-y-3 rounded-lg border border-border p-4">
+    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-sm font-medium">Repository</h2>
+          <h2 className="text-[0.8125rem] font-medium text-muted-foreground">
+            Repository
+          </h2>
           {repository ? (
             <div className="space-y-1">
               <a
@@ -56,8 +58,9 @@ export function ProjectRepositoryPanel({
               </p>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No repository linked yet.
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Repo not linked. Link one to include setup commands, branch naming,
+              and PR tracking in agent context packs.
             </p>
           )}
         </div>

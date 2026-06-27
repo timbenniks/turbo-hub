@@ -6,6 +6,7 @@ import { ArrowLeft, GitPullRequest, Plus, Sparkles } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { FormDialog } from "@/components/ui/form-dialog"
@@ -21,20 +22,6 @@ import {
   type AgentRunStatus,
 } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
-
-const STATUS_VARIANT: Record<
-  AgentRunStatus,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  created: "secondary",
-  queued: "secondary",
-  running: "default",
-  waiting_for_input: "outline",
-  waiting_for_review: "outline",
-  completed: "default",
-  failed: "destructive",
-  canceled: "outline",
-}
 
 const TERMINAL: AgentRunStatus[] = ["completed", "failed", "canceled"]
 
@@ -127,9 +114,7 @@ export function RunDetail({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">Run</h2>
-            <Badge variant={STATUS_VARIANT[run.status]}>
-              {labelize(run.status)}
-            </Badge>
+            <StatusChip value={run.status} />
             <Badge variant="outline">{labelize(run.runnerType)}</Badge>
           </div>
           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
@@ -322,7 +307,7 @@ export function RunDetail({
                 ) : (
                   <span>{pr.title}</span>
                 )}
-                <Badge variant="outline">{labelize(pr.state)}</Badge>
+                <StatusChip value={pr.state} />
               </li>
             ))}
           </ul>

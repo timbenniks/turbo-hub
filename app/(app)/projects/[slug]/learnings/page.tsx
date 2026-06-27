@@ -13,6 +13,13 @@ export default async function ProjectLearningsPage({
     const { workspaceId, project } = await loadProject(slug)
     const learnings = await listLearnings(workspaceId, project.id)
 
-    return <LearningsManager projectId={project.id} learnings={learnings} />
+    return (
+      <LearningsManager
+        slug={slug}
+        projectName={project.name}
+        projectId={project.id}
+        learnings={learnings}
+      />
+    )
   })
 }

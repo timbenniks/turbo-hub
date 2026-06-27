@@ -6,12 +6,15 @@ import { Plus, Sparkles } from "lucide-react"
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Field } from "@/components/ui/field"
 import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
 import { Markdown } from "@/components/ui/markdown"
 import { NativeSelect } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
 import { apiSend } from "@/lib/client"
 import { LEARNING_TYPES } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
@@ -38,45 +41,65 @@ function toPayload(values: Record<string, string>) {
 }
 
 export function LearningsManager({
+  slug,
+  projectName,
   projectId,
   learnings,
 }: {
+  slug: string
+  projectName: string
   projectId: string
   learnings: Learning[]
 }) {
   const { busy, run } = useAsyncAction()
 
+  const createLearning = (
+    <LearningFormDialog
+      title="New learning"
+      trigger={
+        <Button variant="outline" size="sm">
+          <Plus />
+          New learning
+        </Button>
+      }
+      disabled={busy}
+      onSubmit={(values) =>
+        run(
+          () =>
+            apiSend(
+              `/api/projects/${projectId}/learnings`,
+              "POST",
+              toPayload(values)
+            ),
+          "Learning captured"
+        )
+      }
+    />
+  )
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Learnings</h2>
-        <LearningFormDialog
-          title="New learning"
-          trigger={
-            <Button variant="outline">
-              <Plus />
-              New learning
-            </Button>
-          }
-          disabled={busy}
-          onSubmit={(values) =>
-            run(
-              () =>
-                apiSend(
-                  `/api/projects/${projectId}/learnings`,
-                  "POST",
-                  toPayload(values)
-                ),
-              "Learning captured"
-            )
-          }
-        />
-      </div>
+    <div className="space-y-6">
+      <CompactProjectHeader
+        slug={slug}
+        projectName={projectName}
+        title="Learnings"
+        meta={
+          <span>
+            {learnings.length === 0
+              ? "No learnings yet"
+              : `${learnings.length} learning${
+                  learnings.length === 1 ? "" : "s"
+                }`}
+          </span>
+        }
+        actions={createLearning}
+      />
 
       {learnings.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No learnings yet. Capture one, or have your agent add it via MCP.
-        </p>
+        <HelpfulEmptyState
+          title="No learnings yet"
+          description="Learnings capture what worked, what failed, and the gotchas from runs — the raw material you can later promote into reusable patterns. Capture one, or have your agent add it via MCP."
+        />
       ) : (
         <div className="space-y-3">
           {learnings.map((l) => (
@@ -86,8 +109,8 @@ export function LearningsManager({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium">{l.title}</h3>
-                  <Badge variant="secondary">{labelize(l.type)}</Badge>
+                  <h3 className="text-[0.9375rem] font-semibold">{l.title}</h3>
+                  <StatusChip value={l.type} />
                   {l.confidence != null && (
                     <Badge variant="outline">{l.confidence}% sure</Badge>
                   )}

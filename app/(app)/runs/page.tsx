@@ -1,6 +1,7 @@
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
+import { StatusChip } from "@/components/ui/status-chip"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
 import { requirePrimaryWorkspace } from "@/lib/auth/context"
 import { listWorkspaceRunsWithProject } from "@/lib/services/runs"
 import { labelize } from "@/lib/labels"
@@ -23,10 +24,10 @@ export default async function RunsPage() {
         </div>
 
         {runs.length === 0 ? (
-          <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-            No runs yet. Start one from a task, or have your agent create one
-            via MCP.
-          </p>
+          <HelpfulEmptyState
+            title="No runs yet"
+            description="A run is one execution attempt against a task — it records the timeline, output, and resulting PR. Start one from a task, or have your agent create one via MCP."
+          />
         ) : (
           <div className="divide-y divide-border rounded-xl border border-border">
             {runs.map((run) => (
@@ -45,7 +46,7 @@ export default async function RunsPage() {
                     {new Date(run.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <Badge variant="secondary">{labelize(run.status)}</Badge>
+                <StatusChip value={run.status} />
               </Link>
             ))}
           </div>

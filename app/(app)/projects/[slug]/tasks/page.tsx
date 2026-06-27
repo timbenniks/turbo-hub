@@ -20,6 +20,7 @@ export default async function ProjectTasksPage({
   return (
     <TasksManager
       slug={slug}
+      projectName={project.name}
       projectId={project.id}
       tasks={tasks}
       specs={specs.map((s) => ({ id: s.id, title: s.title }))}

@@ -4,8 +4,8 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { StatusChip } from "@/components/ui/status-chip"
 import {
   Table,
   TableBody,
@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
 import { TaskFormDialog } from "@/components/task-form-dialog"
 import { apiSend } from "@/lib/client"
 import { labelize } from "@/lib/labels"
@@ -21,11 +23,13 @@ import type { Task } from "@/lib/services/tasks"
 
 export function TasksManager({
   slug,
+  projectName,
   projectId,
   tasks,
   specs,
 }: {
   slug: string
+  projectName: string
   projectId: string
   tasks: Task[]
   specs: { id: string; title: string }[]
@@ -33,33 +37,47 @@ export function TasksManager({
   const { busy, run } = useAsyncAction()
   const specTitleById = new Map(specs.map((spec) => [spec.id, spec.title]))
 
+  const createTask = (
+    <TaskFormDialog
+      title="New task"
+      specs={specs}
+      trigger={
+        <Button size="sm">
+          <Plus />
+          New task
+        </Button>
+      }
+      disabled={busy}
+      onSubmit={(values) =>
+        run(
+          () => apiSend(`/api/projects/${projectId}/tasks`, "POST", values),
+          "Task created"
+        )
+      }
+    />
+  )
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Tasks</h2>
-        <TaskFormDialog
-          title="New task"
-          specs={specs}
-          trigger={
-            <Button>
-              <Plus />
-              New task
-            </Button>
-          }
-          disabled={busy}
-          onSubmit={(values) =>
-            run(
-              () => apiSend(`/api/projects/${projectId}/tasks`, "POST", values),
-              "Task created"
-            )
-          }
-        />
-      </div>
+    <div className="space-y-6">
+      <CompactProjectHeader
+        slug={slug}
+        projectName={projectName}
+        title="Tasks"
+        meta={
+          <span>
+            {tasks.length === 0
+              ? "No tasks yet"
+              : `${tasks.length} task${tasks.length === 1 ? "" : "s"}`}
+          </span>
+        }
+        actions={createTask}
+      />
 
       {tasks.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No tasks yet. Create one, or have your agent add tasks via MCP.
-        </p>
+        <HelpfulEmptyState
+          title="No tasks yet"
+          description="Tasks are the unit of work an agent or human picks up — each carries acceptance criteria and produces runs and PRs. Create one, or have your agent add tasks via MCP."
+        />
       ) : (
         <div className="rounded-lg border border-border">
           <Table>
@@ -87,10 +105,10 @@ export function TasksManager({
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{labelize(task.status)}</Badge>
+                    <StatusChip value={task.status} />
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{labelize(task.priority)}</Badge>
+                    <StatusChip value={task.priority} />
                   </TableCell>
                   <TableCell>{labelize(task.assigneeType)}</TableCell>
                   <TableCell>{labelize(task.runnerPreference)}</TableCell>

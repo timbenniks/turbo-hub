@@ -1,6 +1,8 @@
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
+import { StatusChip } from "@/components/ui/status-chip"
 import { labelize } from "@/lib/labels"
 import { listProjectRuns } from "@/lib/services/runs"
 import { listTasks } from "@/lib/services/tasks"
@@ -22,19 +24,25 @@ export default async function ProjectRunsPage({
     const taskTitleById = new Map(tasks.map((task) => [task.id, task.title]))
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold">Runs</h2>
-          <p className="text-sm text-muted-foreground">
-            Agent runs linked to this project.
-          </p>
-        </div>
+      <div className="space-y-6">
+        <CompactProjectHeader
+          slug={slug}
+          projectName={project.name}
+          title="Runs"
+          meta={
+            <span>
+              {runs.length === 0
+                ? "No runs yet"
+                : `${runs.length} run${runs.length === 1 ? "" : "s"}`}
+            </span>
+          }
+        />
 
         {runs.length === 0 ? (
-          <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-            No runs yet. Start one from a task, or have an agent create one via
-            MCP.
-          </p>
+          <HelpfulEmptyState
+            title="No runs yet"
+            description="A run is one execution attempt against a task — it records the timeline, output, and resulting PR. Start one from a task, or have an agent create one via MCP."
+          />
         ) : (
           <div className="divide-y divide-border rounded-xl border border-border">
             {runs.map((run) => (
@@ -54,7 +62,7 @@ export default async function ProjectRunsPage({
                     {new Date(run.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <Badge variant="secondary">{labelize(run.status)}</Badge>
+                <StatusChip value={run.status} />
               </Link>
             ))}
           </div>

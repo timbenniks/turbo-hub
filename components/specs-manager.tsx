@@ -4,54 +4,67 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { StatusChip } from "@/components/ui/status-chip"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
 import { SpecFormDialog } from "@/components/spec-form-dialog"
 import { apiSend } from "@/lib/client"
-import { labelize } from "@/lib/labels"
 import type { Spec } from "@/lib/services/specs"
 
 export function SpecsManager({
   slug,
+  projectName,
   projectId,
   specs,
 }: {
   slug: string
+  projectName: string
   projectId: string
   specs: Spec[]
 }) {
   const { busy, run } = useAsyncAction()
 
+  const createSpec = (
+    <SpecFormDialog
+      title="New spec"
+      trigger={
+        <Button variant="outline" size="sm">
+          <Plus />
+          New spec
+        </Button>
+      }
+      disabled={busy}
+      onSubmit={(values) =>
+        run(
+          () => apiSend(`/api/projects/${projectId}/specs`, "POST", values),
+          "Spec created"
+        )
+      }
+    />
+  )
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Specs</h2>
-        <div className="flex gap-2">
-          <SpecFormDialog
-            title="New spec"
-            trigger={
-              <Button variant="outline">
-                <Plus />
-                New spec
-              </Button>
-            }
-            disabled={busy}
-            onSubmit={(values) =>
-              run(
-                () =>
-                  apiSend(`/api/projects/${projectId}/specs`, "POST", values),
-                "Spec created"
-              )
-            }
-          />
-        </div>
-      </div>
+    <div className="space-y-6">
+      <CompactProjectHeader
+        slug={slug}
+        projectName={projectName}
+        title="Specs"
+        meta={
+          <span>
+            {specs.length === 0
+              ? "No specs yet"
+              : `${specs.length} spec${specs.length === 1 ? "" : "s"}`}
+          </span>
+        }
+        actions={createSpec}
+      />
 
       {specs.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No specs yet. Write one manually, or have your agent create one via
-          MCP.
-        </p>
+        <HelpfulEmptyState
+          title="No specs yet"
+          description="A spec turns the plan into something an agent can execute: scope, acceptance criteria, and the tasks that follow. Write one manually, or have your agent create one via MCP."
+        />
       ) : (
         <div className="divide-y divide-border rounded-xl border border-border">
           {specs.map((spec) => (
@@ -70,10 +83,10 @@ export function SpecsManager({
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="text-xs text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
                   v{spec.version}
                 </span>
-                <Badge variant="secondary">{labelize(spec.status)}</Badge>
+                <StatusChip value={spec.status} />
               </div>
             </Link>
           ))}

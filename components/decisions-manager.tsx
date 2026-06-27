@@ -6,67 +6,75 @@ import { Plus } from "lucide-react"
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { StatusChip } from "@/components/ui/status-chip"
 import { Field } from "@/components/ui/field"
 import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
 import { Markdown } from "@/components/ui/markdown"
 import { NativeSelect } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea"
+import { CompactProjectHeader } from "@/components/compact-project-header"
+import { HelpfulEmptyState } from "@/components/helpful-empty-state"
 import { apiSend } from "@/lib/client"
-import {
-  DECISION_STATUSES,
-  DECISION_TYPES,
-  type DecisionStatus,
-} from "@/lib/enums"
+import { DECISION_STATUSES, DECISION_TYPES } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
 import type { Decision } from "@/lib/services/decisions"
 
-const STATUS_VARIANT: Record<
-  DecisionStatus,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  proposed: "secondary",
-  accepted: "default",
-  rejected: "destructive",
-  superseded: "outline",
-}
-
 export function DecisionsManager({
+  slug,
+  projectName,
   projectId,
   decisions,
 }: {
+  slug: string
+  projectName: string
   projectId: string
   decisions: Decision[]
 }) {
   const { busy, run } = useAsyncAction()
 
+  const createDecision = (
+    <DecisionFormDialog
+      title="New decision"
+      trigger={
+        <Button variant="outline" size="sm">
+          <Plus />
+          New decision
+        </Button>
+      }
+      disabled={busy}
+      onSubmit={(values) =>
+        run(
+          () => apiSend(`/api/projects/${projectId}/decisions`, "POST", values),
+          "Decision recorded"
+        )
+      }
+    />
+  )
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground">Decisions</h2>
-        <DecisionFormDialog
-          title="New decision"
-          trigger={
-            <Button variant="outline">
-              <Plus />
-              New decision
-            </Button>
-          }
-          disabled={busy}
-          onSubmit={(values) =>
-            run(
-              () =>
-                apiSend(`/api/projects/${projectId}/decisions`, "POST", values),
-              "Decision recorded"
-            )
-          }
-        />
-      </div>
+    <div className="space-y-6">
+      <CompactProjectHeader
+        slug={slug}
+        projectName={projectName}
+        title="Decisions"
+        meta={
+          <span>
+            {decisions.length === 0
+              ? "No decisions yet"
+              : `${decisions.length} decision${
+                  decisions.length === 1 ? "" : "s"
+                }`}
+          </span>
+        }
+        actions={createDecision}
+      />
 
       {decisions.length === 0 ? (
-        <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No decisions yet. Record one, or have your agent add it via MCP.
-        </p>
+        <HelpfulEmptyState
+          title="No decisions yet"
+          description="Decisions capture the architecture and trade-off calls behind this project, so agents and teammates don't relitigate them. Record one, or have your agent add it via MCP."
+        />
       ) : (
         <div className="space-y-3">
           {decisions.map((d) => (
@@ -76,10 +84,8 @@ export function DecisionsManager({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-medium">{d.title}</h3>
-                  <Badge variant={STATUS_VARIANT[d.status]}>
-                    {labelize(d.status)}
-                  </Badge>
+                  <h3 className="text-[0.9375rem] font-semibold">{d.title}</h3>
+                  <StatusChip value={d.status} />
                   <Badge variant="outline">{labelize(d.type)}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
