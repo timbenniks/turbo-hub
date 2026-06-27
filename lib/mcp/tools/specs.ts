@@ -9,7 +9,7 @@ import {
   updateSpec,
 } from "@/lib/services/specs"
 import { specCreateSchema, specUpdateSchema } from "@/lib/validation/specs"
-import { requireAuth, resolveProject } from "@/lib/mcp/context"
+import { requireAuth, requireWriteAuth, resolveProject } from "@/lib/mcp/context"
 import { fail, handle, ok } from "@/lib/mcp/format"
 
 const projectRef = z.string().describe("Project id, slug, or exact name")
@@ -42,7 +42,7 @@ export function registerSpecTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { project, ...rest } = args
         const id = await resolveProject(workspaceId, project)
         const spec = await createSpec(
@@ -82,7 +82,7 @@ export function registerSpecTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { specId, ...rest } = args
         const spec = await updateSpec(
           ctx,
@@ -106,7 +106,7 @@ export function registerSpecTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const spec = await markSpecReady(ctx, workspaceId, args.specId)
         return spec
           ? ok(spec, `Marked spec "${spec.title}" ready.`)

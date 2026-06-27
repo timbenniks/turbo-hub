@@ -12,9 +12,22 @@ import {
 } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
 
+import { boolean } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+
 import {
   ACTOR_TYPES,
+  API_KEY_SCOPES,
+  type ApiKeyScope,
+  AGENT_PROFILE_TYPES,
+  AGENT_RUN_EVENT_TYPES,
+  AGENT_RUN_STATUSES,
+  CONTEXT_PACK_STATUSES,
+  DECISION_STATUSES,
+  DECISION_TYPES,
+  LEARNING_TYPES,
   PLAN_STATUSES,
+  PULL_REQUEST_STATES,
   PROJECT_HEALTHS,
   PROJECT_PRIORITIES,
   PROJECT_STATUSES,
@@ -67,6 +80,22 @@ export const taskDependencyType = pgEnum(
   "task_dependency_type",
   TASK_DEPENDENCY_TYPES
 )
+export const decisionType = pgEnum("decision_type", DECISION_TYPES)
+export const decisionStatus = pgEnum("decision_status", DECISION_STATUSES)
+export const learningType = pgEnum("learning_type", LEARNING_TYPES)
+export const contextPackStatus = pgEnum(
+  "context_pack_status",
+  CONTEXT_PACK_STATUSES
+)
+export const agentProfileType = pgEnum("agent_profile_type", AGENT_PROFILE_TYPES)
+export const agentRunStatus = pgEnum("agent_run_status", AGENT_RUN_STATUSES)
+export const agentRunEventType = pgEnum(
+  "agent_run_event_type",
+  AGENT_RUN_EVENT_TYPES
+)
+export const pullRequestState = pgEnum("pull_request_state", PULL_REQUEST_STATES)
+
+const defaultApiKeyScopes = sql.raw(`'${JSON.stringify(API_KEY_SCOPES)}'::jsonb`)
 
 // ---------------------------------------------------------------------------
 // Auth.js tables (Drizzle adapter shape)
@@ -99,6 +128,11 @@ export const apiKeys = pgTable(
     hashedKey: text("hashed_key").notNull().unique(),
     // Short, non-secret identifier shown in the UI (e.g. "thub_a1b2c3d").
     prefix: text("prefix").notNull(),
+    scopes: jsonb("scopes")
+      .$type<ApiKeyScope[]>()
+      .default(defaultApiKeyScopes)
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
@@ -274,6 +308,8 @@ export const activityEvents = pgTable(
     projectId: text("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
+    // Optional task linkage — indexed so the task timeline doesn't scan jsonb.
+    taskId: text("task_id"),
     actorType: actorType("actor_type").notNull().default("user"),
     actorId: text("actor_id"),
     type: text("type").notNull(),
@@ -285,6 +321,7 @@ export const activityEvents = pgTable(
   (a) => [
     index("activity_events_workspace_idx").on(a.workspaceId),
     index("activity_events_project_idx").on(a.projectId),
+    index("activity_events_task_idx").on(a.taskId),
   ]
 )
 
@@ -475,10 +512,315 @@ export const taskDependencies = pgTable(
 )
 
 // ---------------------------------------------------------------------------
+// Decisions (spec §12.15) — durable record of choices made on a project
+// ---------------------------------------------------------------------------
+
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    // Optional links to the task/run that produced the decision.
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    // FK target (agent_runs) added in Phase 3.
+    runId: text("run_id"),
+    title: text("title").notNull(),
+    body: text("body"),
+    type: decisionType("type").notNull().default("other"),
+    status: decisionStatus("status").notNull().default("proposed"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (d) => [
+    index("decisions_project_idx").on(d.projectId),
+    index("decisions_workspace_status_idx").on(d.workspaceId, d.status),
+    index("decisions_fts_idx").using(
+      "gin",
+      sql`to_tsvector('english', coalesce(${d.title}, '') || ' ' || coalesce(${d.body}, ''))`
+    ),
+  ]
+)
+
+// ---------------------------------------------------------------------------
+// Learnings (spec §12.16) — captured insights; some get promoted to patterns
+// ---------------------------------------------------------------------------
+
+export const learnings = pgTable(
+  "learnings",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    // FK target (agent_runs) added in Phase 3.
+    runId: text("run_id"),
+    title: text("title").notNull(),
+    body: text("body"),
+    type: learningType("type").notNull().default("gotcha"),
+    // 0-100 self-reported confidence (nullable = unspecified).
+    confidence: integer("confidence"),
+    tags: text("tags").array().notNull().default([]),
+    stack: text("stack").array().notNull().default([]),
+    // Set once a learning is promoted into a reusable pattern (spec §12.17).
+    promotedToPattern: text("promoted_to_pattern"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (l) => [
+    index("learnings_project_idx").on(l.projectId),
+    index("learnings_workspace_type_idx").on(l.workspaceId, l.type),
+    index("learnings_tags_idx").using("gin", l.tags),
+    index("learnings_fts_idx").using(
+      "gin",
+      sql`to_tsvector('english', coalesce(${l.title}, '') || ' ' || coalesce(${l.body}, ''))`
+    ),
+  ]
+)
+
+// ---------------------------------------------------------------------------
+// Patterns (spec §12.17) — reusable knowledge that compounds across projects
+// ---------------------------------------------------------------------------
+
+export const patterns = pgTable(
+  "patterns",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    summary: text("summary").notNull(),
+    body: text("body"),
+    appliesTo: text("applies_to"),
+    // Free-form category (often mirrors a learning type).
+    type: text("type"),
+    tags: text("tags").array().notNull().default([]),
+    stack: text("stack").array().notNull().default([]),
+    usageCount: integer("usage_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    // Provenance — where the pattern came from.
+    sourceProjectId: text("source_project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    sourceTaskId: text("source_task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
+    sourceLearningId: text("source_learning_id"),
+    // FK target (agent_runs) added in Phase 3.
+    sourceRunId: text("source_run_id"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (p) => [
+    index("patterns_workspace_idx").on(p.workspaceId),
+    index("patterns_tags_idx").using("gin", p.tags),
+    index("patterns_stack_idx").using("gin", p.stack),
+    index("patterns_fts_idx").using(
+      "gin",
+      sql`to_tsvector('english', coalesce(${p.summary}, '') || ' ' || coalesce(${p.body}, '') || ' ' || coalesce(${p.appliesTo}, ''))`
+    ),
+  ]
+)
+
+// ---------------------------------------------------------------------------
+// Context packs (spec §12.18, §13.7) — frozen, agent-ready task context.
+// Immutable once `sent` (spec §25.3, §28.5).
+// ---------------------------------------------------------------------------
+
+export const contextPacks = pgTable(
+  "context_packs",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    // What went into the pack (spec excerpts, decisions, learnings, patterns).
+    sources: jsonb("sources"),
+    tokenEstimate: integer("token_estimate").notNull().default(0),
+    status: contextPackStatus("status").notNull().default("draft"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    // When the pack was frozen and handed to an agent (immutable thereafter).
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (c) => [
+    index("context_packs_task_idx").on(c.taskId),
+    index("context_packs_project_idx").on(c.projectId),
+  ]
+)
+
+// ---------------------------------------------------------------------------
+// Agent profiles (spec §12.10) — configured runner types
+// ---------------------------------------------------------------------------
+
+export const agentProfiles = pgTable(
+  "agent_profiles",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: agentProfileType("type").notNull().default("manual"),
+    description: text("description"),
+    capabilities: text("capabilities").array().notNull().default([]),
+    defaultModel: text("default_model"),
+    configuration: jsonb("configuration"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (p) => [index("agent_profiles_workspace_idx").on(p.workspaceId)]
+)
+
+// ---------------------------------------------------------------------------
+// Agent runs (spec §12.11) — a single execution attempt against a task
+// ---------------------------------------------------------------------------
+
+export const agentRuns = pgTable(
+  "agent_runs",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    profileId: text("profile_id").references(() => agentProfiles.id, {
+      onDelete: "set null",
+    }),
+    runnerType: text("runner_type").notNull().default("manual"),
+    externalRunnerId: text("external_runner_id"),
+    status: agentRunStatus("status").notNull().default("created"),
+    prompt: text("prompt"),
+    contextPackId: text("context_pack_id").references(() => contextPacks.id, {
+      onDelete: "set null",
+    }),
+    branchName: text("branch_name"),
+    // FK target (pull_requests) intentionally omitted to avoid a circular FK;
+    // pull_requests.run_id is the linking column.
+    pullRequestId: text("pull_request_id"),
+    summary: text("summary"),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (r) => [
+    index("agent_runs_project_idx").on(r.projectId),
+    index("agent_runs_task_idx").on(r.taskId),
+    index("agent_runs_workspace_status_idx").on(r.workspaceId, r.status),
+  ]
+)
+
+// ---------------------------------------------------------------------------
+// Agent run events (spec §12.12) — append-only run timeline (no update/delete)
+// ---------------------------------------------------------------------------
+
+export const agentRunEvents = pgTable(
+  "agent_run_events",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    runId: text("run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    type: agentRunEventType("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    createdAt: createdAt(),
+  },
+  (e) => [index("agent_run_events_run_idx").on(e.runId)]
+)
+
+// ---------------------------------------------------------------------------
+// Pull requests (spec §12.13) — tracked PRs linked to project/task/run.
+// Manual linking now; webhook-driven in Phase 5.
+// ---------------------------------------------------------------------------
+
+export const pullRequests = pgTable(
+  "pull_requests",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    runId: text("run_id").references(() => agentRuns.id, {
+      onDelete: "set null",
+    }),
+    // FK target (repositories) added in Phase 5.
+    repositoryId: text("repository_id"),
+    provider: text("provider").notNull().default("github"),
+    externalId: text("external_id"),
+    number: integer("number"),
+    title: text("title").notNull(),
+    url: text("url"),
+    state: pullRequestState("state").notNull().default("open"),
+    author: text("author"),
+    branch: text("branch"),
+    baseBranch: text("base_branch"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    mergedAt: timestamp("merged_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (pr) => [
+    index("pull_requests_project_idx").on(pr.projectId),
+    index("pull_requests_task_idx").on(pr.taskId),
+    index("pull_requests_run_idx").on(pr.runId),
+  ]
+)
+
+// ---------------------------------------------------------------------------
 // TODO (later phases — extend this file, keep one coherent schema):
-//   Phase 2: decisions, learnings, patterns, context_packs
-//   Phase 3: agent_profiles, agent_runs, agent_run_events, pull_requests
 //   Phase 4: integrations
 //   Phase 5: repositories
-//   Phase 6: api_keys, mcp_tokens
 // ---------------------------------------------------------------------------

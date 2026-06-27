@@ -12,7 +12,6 @@ import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
 import { Markdown } from "@/components/ui/markdown"
 import { Textarea } from "@/components/ui/textarea"
-import { PromptDialog } from "@/components/prompt-dialog"
 import { apiSend } from "@/lib/client"
 import { labelize } from "@/lib/labels"
 import {
@@ -47,23 +46,6 @@ export function PlanManager({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-muted-foreground">Plans</h2>
         <div className="flex gap-2">
-          <PromptDialog
-            triggerLabel="Generate plan"
-            title="Generate a plan"
-            description="Describe what you want to build. The draft is editable before you activate it."
-            placeholder="e.g. A CLI that syncs my notes to a Postgres database…"
-            rows={6}
-            disabled={busy}
-            onSubmit={(idea) =>
-              run(
-                () =>
-                  apiSend(`/api/projects/${projectId}/plans/generate`, "POST", {
-                    idea,
-                  }),
-                "Plan generated"
-              )
-            }
-          />
           <ExternalPlanDialog
             project={project}
             disabled={busy}
@@ -97,7 +79,7 @@ export function PlanManager({
 
       {plans.length === 0 ? (
         <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No plans yet. Generate one from an idea, or create one manually.
+          No plans yet. Paste one from your agent, or create one manually.
         </p>
       ) : (
         <div className="space-y-4">

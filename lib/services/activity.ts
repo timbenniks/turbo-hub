@@ -1,12 +1,14 @@
 import { db } from "@/db"
 import { activityEvents } from "@/db/schema"
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 type ActorType = "user" | "agent" | "system"
 
 export type RecordActivityInput = {
   workspaceId: string
   projectId?: string | null
+  /** Set for task-scoped events so the task timeline can use an indexed lookup. */
+  taskId?: string | null
   actorType?: ActorType
   actorId?: string | null
   type: string
@@ -23,6 +25,7 @@ export async function recordActivity(input: RecordActivityInput) {
   await db.insert(activityEvents).values({
     workspaceId: input.workspaceId,
     projectId: input.projectId ?? null,
+    taskId: input.taskId ?? null,
     actorType: input.actorType ?? "user",
     actorId: input.actorId ?? null,
     type: input.type,
@@ -54,7 +57,6 @@ export async function listProjectActivity(
 
 export async function listTaskActivity(
   workspaceId: string,
-  projectId: string,
   taskId: string,
   limit = 20
 ): Promise<ActivityEvent[]> {
@@ -64,8 +66,7 @@ export async function listTaskActivity(
     .where(
       and(
         eq(activityEvents.workspaceId, workspaceId),
-        eq(activityEvents.projectId, projectId),
-        sql`${activityEvents.metadata}->>'taskId' = ${taskId}`
+        eq(activityEvents.taskId, taskId)
       )
     )
     .orderBy(desc(activityEvents.createdAt))

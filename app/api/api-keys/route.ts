@@ -15,7 +15,7 @@ export function GET() {
 export function POST(req: NextRequest) {
   return handle(async () => {
     const ctx = await requireSessionUser()
-    const { name } = apiKeyCreateSchema.parse(await req.json())
-    return createApiKey(ctx, name)
+    const input = apiKeyCreateSchema.parse(await req.json())
+    return createApiKey(ctx, input)
   })
 }

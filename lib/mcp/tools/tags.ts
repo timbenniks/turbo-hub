@@ -8,7 +8,7 @@ import {
   updateTag,
 } from "@/lib/services/tags"
 import { tagCreateSchema, tagUpdateSchema } from "@/lib/validation/tags"
-import { requireAuth } from "@/lib/mcp/context"
+import { requireAuth, requireWriteAuth } from "@/lib/mcp/context"
 import { fail, handle, ok } from "@/lib/mcp/format"
 
 export function registerTagTools(server: McpServer) {
@@ -38,7 +38,7 @@ export function registerTagTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const tag = await createTag(ctx, workspaceId, tagCreateSchema.parse(args))
         return ok(tag, `Created tag "${tag.name}" (id ${tag.id}).`)
       })
@@ -54,7 +54,7 @@ export function registerTagTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { tagId, ...rest } = args
         const tag = await updateTag(
           ctx,
@@ -81,7 +81,7 @@ export function registerTagTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const tag = await deleteTag(ctx, workspaceId, args.tagId)
         return tag ? ok(tag, `Deleted tag "${tag.name}".`) : fail("Tag not found.")
       })

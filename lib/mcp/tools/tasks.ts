@@ -15,7 +15,7 @@ import {
   taskListFiltersSchema,
   taskUpdateSchema,
 } from "@/lib/validation/tasks"
-import { requireAuth, resolveProject } from "@/lib/mcp/context"
+import { requireAuth, requireWriteAuth, resolveProject } from "@/lib/mcp/context"
 import { fail, handle, ok } from "@/lib/mcp/format"
 
 const projectRef = z.string().describe("Project id, slug, or exact name")
@@ -53,7 +53,7 @@ export function registerTaskTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { project, ...rest } = args
         const id = await resolveProject(workspaceId, project)
         const task = await createTask(
@@ -93,7 +93,7 @@ export function registerTaskTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { taskId, ...rest } = args
         const task = await updateTask(
           ctx,
@@ -131,7 +131,7 @@ export function registerTaskTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { taskId, ...rest } = args
         const task = await getTask(workspaceId, taskId)
         if (!task) return fail("Task not found.")

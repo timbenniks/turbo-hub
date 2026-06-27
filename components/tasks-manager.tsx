@@ -58,7 +58,7 @@ export function TasksManager({
 
       {tasks.length === 0 ? (
         <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No tasks yet. Create one, or generate tasks from a spec.
+          No tasks yet. Create one, or have your agent add tasks via MCP.
         </p>
       ) : (
         <div className="rounded-lg border border-border">

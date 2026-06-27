@@ -12,6 +12,14 @@ decisions, learnings, and search patterns; with a write-scoped token it can clai
 a task, create a run, append events, attach a PR, and add a learning — every
 write audited and scope-checked.
 
+> **Status:** a simplified Phase 6 shipped early. `/api/mcp` exists and wraps the
+> domain services for projects, planning, context/memory, runs, PRs, search, and
+> agent profiles. `thub_` API keys are hashed, revocable, expirable, and carry
+> coarse `api:*` / `mcp:*` scopes. MCP write tools require `mcp:write`. Still
+> remaining from the full spec: per-project allowlists, per-tool allowlists,
+> rate limits, idempotency keys, dedicated audit-log views, and separate MCP
+> token records.
+
 ## Prerequisites
 
 - Phases 0–3 complete (services for projects/specs/tasks/runs/context/memory).
@@ -21,7 +29,7 @@ write audited and scope-checked.
 
 ### 1. Schema additions (spec §12.20, §12.21, §25.2)
 
-- `api_keys` (token_hash, scopes, expires_at, last_used_at, revoked_at — §12.20).
+- `api_keys` (token_hash, scopes, expires_at, last_used_at — §12.20).
 - `mcp_tokens` (token_hash, allowed_project_ids, allowed_tool_names, read_only,
   expires_at, last_used_at, revoked_at — §12.21).
 - `audit_log` (or reuse `activity_events` with actor_type=agent) capturing actor,
@@ -51,10 +59,10 @@ workspace://{workspaceId}/patterns
 the API uses:
 ```
 read:  list_projects get_project list_specs get_spec list_tasks get_task
-       search_patterns find_related_projects  (+ generate_context_pack preview)
+       search_patterns find_related_projects  (+ context resources)
 write: create_project update_project_status create_spec update_spec
        create_task update_task_status claim_task complete_task
-       approve_context_pack start_agent_run update_agent_run_status
+       assemble_context_pack approve_context_pack start_agent_run update_agent_run_status
        append_agent_run_event attach_pull_request_to_run complete_agent_run
        fail_agent_run create_decision create_learning promote_learning_to_pattern
 ```
@@ -77,12 +85,14 @@ access → project access (against `allowed_project_ids`) → input validation (
 
 ## Acceptance criteria (spec §28.8)
 
-- [ ] MCP server exposes project and task resources.
-- [ ] Read-only tools work under a read-only token; writes are denied for it.
-- [ ] Scoped write tools work under a write token and respect project scope.
-- [ ] MCP writes create audit events.
-- [ ] Token scope/workspace/project checks enforced centrally; tokens are hashed,
-      expirable, revocable.
+- [x] MCP server exposes project/task tools over HTTP.
+- [x] Read-only tools work under an `mcp:read` token; writes are denied without
+      `mcp:write`.
+- [x] Scoped write tools work under a write token.
+- [x] MCP writes create activity events through the shared services.
+- [ ] Project/tool allowlists are enforced.
+- [x] Tokens are hashed, expirable, revocable, and last-used updates are
+      throttled.
 - [ ] Idempotency keys honored on repeated writes; rate limits applied.
 - [ ] MCP tools call the same services as the API (no duplicated DB logic).
 - [ ] typecheck + lint clean; migrations apply.

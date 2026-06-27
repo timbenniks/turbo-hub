@@ -72,18 +72,6 @@ export function SpecDetail({ slug, spec }: { slug: string; spec: Spec }) {
               Mark ready
             </Button>
           )}
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              run(
-                () => apiSend(`/api/specs/${spec.id}/generate-tasks`),
-                "Tasks generated"
-              )
-            }
-          >
-            Generate tasks
-          </Button>
         </div>
       </div>
 

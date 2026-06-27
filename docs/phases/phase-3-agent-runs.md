@@ -12,6 +12,12 @@ attach a PR → mark complete → extract a learning → promote to pattern. The
 runner abstraction here is what Phase 4 (Cursor) and Phase 7 (local Claude) plug
 into.
 
+> **Status:** this phase is **built for the manual runner path**. Agent profiles,
+> runs, run events, manual PR linking, task dispatch UI, run detail UI, project
+> run/PR tabs, top-level Runs page, and REST/MCP tools exist. Remaining hardening:
+> idempotency keys, rate limits, richer audit views, and the external runner
+> adapters in later phases.
+
 ## Prerequisites
 
 - Phase 2 complete (context packs attachable to runs; learnings/patterns exist).
@@ -60,9 +66,10 @@ type Runner = {
   (append-only), `attachPullRequest`, `attachArtifact`, `completeRun`, `failRun`,
   `cancelRun`. Every event also writes an `activity_events` row (spec §27.1).
 - `pullRequests.ts` — create/link/update PR; manual linking now.
-- `runs.ts#extractLearning(runId)` — AI-assisted (reuse `lib/ai/`): asks the §11.9
-  questions (what worked/failed/repeat/avoid/reusable/conventions) and drafts a
-  `learnings` row for human approval.
+- `runs.ts#extractLearning(runId)` — **no in-app model** (there is no `lib/ai/`).
+  Surface the run summary + the §11.9 questions (what worked/failed/repeat/avoid/
+  reusable/conventions) to the local model, which writes the `learnings` row via
+  the `create_learning` MCP tool. The hub just stores it.
 
 ### 4. API routes (spec §17.2)
 
@@ -96,15 +103,15 @@ writes (spec §17.1, §26.2), clear errors.
 
 ## Acceptance criteria (spec §28.6)
 
-- [ ] Start a manual run from a task with an approved context pack.
-- [ ] Run has a status and an append-only timeline of events.
-- [ ] Append events via API; events cannot be edited/deleted.
-- [ ] Attach a PR to a run (manual link).
-- [ ] Complete or fail a run; status + task status update accordingly.
-- [ ] Extract a learning from a completed run (AI draft, human-approved) and
+- [x] Start a manual run from a task with an approved context pack.
+- [x] Run has a status and an append-only timeline of events.
+- [x] Append events via API; events cannot be edited/deleted.
+- [x] Attach a PR to a run (manual link).
+- [x] Complete or fail a run; status + task status update accordingly.
+- [x] Capture a learning from a completed run (manual/human-approved) and
       promote it to a pattern.
-- [ ] Run mutations create activity events.
-- [ ] typecheck + lint clean; migrations apply.
+- [x] Run mutations create activity events.
+- [x] typecheck + lint clean; migrations apply.
 
 ## Notes
 

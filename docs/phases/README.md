@@ -1,11 +1,22 @@
 # Build phases — Agent-native project hub
 
+> **Update (2026-06-27): no in-app LLM.** All server-side AI generation was
+> removed (Vercel AI Gateway/SDK, provider packages, the `lib/ai/` helpers, the
+> `/generate` routes, and the old "Generate" UI buttons). Content is hand-filled,
+> written by a local model through the **MCP tools**, or pasted in via the
+> external-agent flow. Context packs assemble deterministically. Anywhere the
+> phase docs below say "generate" / "AI-assisted", read it through that lens.
+> Also note the build order diverged from the list below: **Phase 6 (MCP server +
+> `thub_` API tokens) shipped early**, **Phase 2 is largely built**, and
+> **Phase 3 is built in manual-runner form**. Later phases still harden and
+> automate the runner/PR story.
+
 This directory slices [`docs/spec.md`](../spec.md) into ordered, shippable phases.
 Each phase doc is self-contained: goal, prerequisites, task checklist, files to
 touch, and acceptance criteria. Build them in order. Each phase ends in a
 demoable, deployable state.
 
-## Where we are now (Phase 1 baseline)
+## Where we are now
 
 Already in the repo (`AGENTS.md` describes the project conventions):
 
@@ -22,15 +33,32 @@ Already in the repo (`AGENTS.md` describes the project conventions):
 - Domain services in `lib/services/`; App Router pages and API routes call those
   services rather than touching Drizzle directly.
 - Project dashboard/list/detail UI, project tagging/archive flow, plan/spec/task
-  tabs, AI-assisted plan/spec/task generation, editable drafts, spec versioning,
+  tabs, manual + MCP-driven plan/spec/task authoring, editable drafts, spec versioning,
   task dependencies/subtasks, and task activity display.
+- Context + memory layer: deterministic context-pack assembly, decisions,
+  learnings, reusable patterns, pattern search, project memory tabs, task
+  context-pack panel, and top-level Patterns page.
+- Manual agent-run layer: agent profiles, task run dispatch, run timelines,
+  run completion/failure/cancel flows, project/top-level run lists, manual PR
+  linking, and learning capture.
+- MCP adapter: `/api/mcp` exposes tools over the same domain services used by
+  the UI/API. `thub_` API keys are hashed, revocable, expirable, and scoped for
+  API/MCP read/write. MCP mutating tools require `mcp:write`.
 
-Current gate: `npm run typecheck`, `npm run lint`, and `npx drizzle-kit check`
-must pass before moving into the next phase.
+Current gate: `npm run typecheck`, `npm run lint`, `npx drizzle-kit check`, and
+`npm run build` must pass before moving into the next phase.
 
-Not yet present (later phases): context packs, decisions, learnings, patterns,
-agent runs, pull requests, integrations, MCP server, scoped tokens, CLI, and
-local/cloud runner adapters.
+Still not present or intentionally incomplete:
+
+- Real external runner adapters: Cursor cloud (Phase 4) and local Claude/CLI
+  runner (Phase 7) are not implemented.
+- GitHub App/webhooks/repository linking (Phase 5) are not implemented; PRs are
+  manually linked for now.
+- MCP/API token hardening is simplified compared with the full spec: there are
+  coarse read/write scopes and expiry, but no per-project allowlist, per-tool
+  allowlist, rate limits, idempotency keys, or dedicated audit-log table yet.
+- Learning extraction is manual/human-approved. The hub stores learnings; it
+  does not call an in-app model to draft them.
 
 ## Target architecture (spec §15)
 
@@ -51,9 +79,9 @@ adapters behind a common interface — no vendor logic leaks into the core.
 | Phase | Spec slice | Theme | Outcome |
 |-------|-----------|-------|---------|
 | [0](./phase-0-foundation.md) | Slice 1 | Foundation | Auth, schema, workspace bootstrap, project CRUD, tags, dashboard |
-| [1](./phase-1-planning.md) | Slice 2 | Planning layer | Plans, specs, tasks, project overview, AI generation |
+| [1](./phase-1-planning.md) | Slice 2 | Planning layer | Plans, specs, tasks, project overview (hand-filled / MCP / paste) |
 | [2](./phase-2-context-memory.md) | Slice 3 | Context + memory | Context packs, decisions, learnings, patterns, search |
-| [3](./phase-3-agent-runs.md) | Slice 4 | Agent runs | Agent profiles, manual runs, timeline, events, learning extraction |
+| [3](./phase-3-agent-runs.md) | Slice 4 | Agent runs | Agent profiles, manual runs, timeline, events, manual learning capture |
 | [4](./phase-4-cursor-dispatch.md) | Slice 5 | Cursor cloud | Cursor integration, dispatch, external run tracking |
 | [5](./phase-5-github.md) | Slice 6 | GitHub | GitHub App, repo connect, PR tracking, webhooks |
 | [6](./phase-6-mcp.md) | Slice 7 | MCP server | Read-only resources/tools, scoped writes, tokens, audit |
@@ -61,7 +89,8 @@ adapters behind a common interface — no vendor logic leaks into the core.
 
 The **first meaningful demo** (spec §33) is reached at the end of Phase 3 for
 manual runs, Phase 4 for Cursor — sign in → project → plan → spec → tasks →
-context pack → run → PR → learning → pattern → reuse.
+context pack → run → PR → learning → pattern → reuse. The manual-runner version
+of that path is now the current smoke-test target.
 
 ## Conventions (apply every phase)
 

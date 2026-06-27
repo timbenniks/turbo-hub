@@ -19,6 +19,8 @@ import {
 import { Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { apiSend } from "@/lib/client"
+import { API_KEY_SCOPES, type ApiKeyScope } from "@/lib/enums"
+import { labelize } from "@/lib/labels"
 import type { ApiKeyPublic } from "@/lib/services/api-keys"
 
 export function ApiKeysManager({ keys }: { keys: ApiKeyPublic[] }) {
@@ -48,7 +50,14 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyPublic[] }) {
                   {new Date(key.createdAt).toLocaleDateString()} · last used{" "}
                   {key.lastUsedAt
                     ? new Date(key.lastUsedAt).toLocaleDateString()
+                    : "never"}{" "}
+                  · expires{" "}
+                  {key.expiresAt
+                    ? new Date(key.expiresAt).toLocaleDateString()
                     : "never"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {key.scopes.map(labelize).join(", ")}
                 </p>
               </div>
               <Button
@@ -79,6 +88,10 @@ function CreateKeyDialog() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState("")
+  const [scopes, setScopes] = React.useState<ApiKeyScope[]>([
+    ...API_KEY_SCOPES,
+  ])
+  const [expiresAt, setExpiresAt] = React.useState("")
   const [token, setToken] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
@@ -86,6 +99,8 @@ function CreateKeyDialog() {
   function reset() {
     setOpen(false)
     setName("")
+    setScopes([...API_KEY_SCOPES])
+    setExpiresAt("")
     setToken(null)
     setCopied(false)
   }
@@ -96,7 +111,13 @@ function CreateKeyDialog() {
       const { token } = await apiSend<{ token: string }>(
         "/api/api-keys",
         "POST",
-        { name }
+        {
+          name,
+          scopes,
+          expiresAt: expiresAt
+            ? new Date(`${expiresAt}T23:59:59.999Z`).toISOString()
+            : undefined,
+        }
       )
       setToken(token)
       router.refresh()
@@ -116,6 +137,14 @@ function CreateKeyDialog() {
     } catch {
       toast.error("Couldn't access the clipboard")
     }
+  }
+
+  function toggleScope(scope: ApiKeyScope) {
+    setScopes((current) =>
+      current.includes(scope)
+        ? current.filter((s) => s !== scope)
+        : [...current, scope]
+    )
   }
 
   return (
@@ -152,15 +181,43 @@ function CreateKeyDialog() {
             </Button>
           </div>
         ) : (
-          <Field label="Name" htmlFor="key-name">
-            <Input
-              id="key-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Claude agent"
-              autoFocus
-            />
-          </Field>
+          <div className="space-y-4">
+            <Field label="Name" htmlFor="key-name">
+              <Input
+                id="key-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Claude agent"
+                autoFocus
+              />
+            </Field>
+            <Field label="Scopes">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {API_KEY_SCOPES.map((scope) => (
+                  <label
+                    key={scope}
+                    className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={scopes.includes(scope)}
+                      onChange={() => toggleScope(scope)}
+                    />
+                    {labelize(scope)}
+                  </label>
+                ))}
+              </div>
+            </Field>
+            <Field label="Expires" htmlFor="key-expires">
+              <Input
+                id="key-expires"
+                type="date"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+              />
+            </Field>
+          </div>
         )}
 
         <DialogFooter>
@@ -171,7 +228,10 @@ function CreateKeyDialog() {
               <Button variant="outline" onClick={reset}>
                 Cancel
               </Button>
-              <Button onClick={create} disabled={busy || !name.trim()}>
+              <Button
+                onClick={create}
+                disabled={busy || !name.trim() || scopes.length === 0}
+              >
                 Create
               </Button>
             </>

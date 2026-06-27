@@ -1,9 +1,7 @@
 import { headers } from "next/headers"
-import { eq } from "drizzle-orm"
 
-import { db } from "@/db"
-import { users } from "@/db/schema"
-import { userIdForToken } from "@/lib/services/api-keys"
+import { apiKeyForToken } from "@/lib/services/api-keys"
+import { getUserProfile } from "@/lib/services/users"
 import type { AuthContext } from "@/lib/auth/context"
 
 /** Extract a token from the standard `Authorization: Bearer` or `X-API-Key`. */
@@ -25,19 +23,16 @@ export async function userFromApiKey(): Promise<AuthContext | null> {
   const token = tokenFromHeaders(await headers())
   if (!token) return null
 
-  const userId = await userIdForToken(token)
-  if (!userId) return null
+  const key = await apiKeyForToken(token)
+  if (!key) return null
+  if (!key.scopes.some((scope) => scope.startsWith("api:"))) return null
 
-  const [user] = await db
-    .select({ name: users.name, email: users.email, image: users.image })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-
+  const user = await getUserProfile(key.userId)
   return {
-    userId,
+    userId: key.userId,
     name: user?.name,
     email: user?.email,
     image: user?.image,
+    apiKeyScopes: key.scopes,
   }
 }

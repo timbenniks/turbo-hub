@@ -12,11 +12,10 @@ const TABS: { label: string; segment: string; enabled: boolean }[] = [
   { label: "Plan", segment: "plan", enabled: true },
   { label: "Specs", segment: "specs", enabled: true },
   { label: "Tasks", segment: "tasks", enabled: true },
-  { label: "Runs", segment: "runs", enabled: false },
-  { label: "PRs", segment: "pull-requests", enabled: false },
-  { label: "Decisions", segment: "decisions", enabled: false },
-  { label: "Learnings", segment: "learnings", enabled: false },
-  { label: "Patterns", segment: "patterns", enabled: false },
+  { label: "Runs", segment: "runs", enabled: true },
+  { label: "PRs", segment: "pull-requests", enabled: true },
+  { label: "Decisions", segment: "decisions", enabled: true },
+  { label: "Learnings", segment: "learnings", enabled: true },
   { label: "Settings", segment: "settings", enabled: false },
 ]
 

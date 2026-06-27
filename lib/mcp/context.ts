@@ -1,15 +1,15 @@
-import { eq } from "drizzle-orm"
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js"
 
-import { db } from "@/db"
-import { users } from "@/db/schema"
+import { AuthError } from "@/lib/auth/context"
 import type { AuthContext } from "@/lib/auth/context"
-import { userIdForToken } from "@/lib/services/api-keys"
+import { apiKeyForToken } from "@/lib/services/api-keys"
+import type { ApiKeyScope } from "@/lib/enums"
 import {
   getProjectById,
   getProjectBySlug,
   listProjects,
 } from "@/lib/services/projects"
+import { getUserProfile } from "@/lib/services/users"
 import { getPrimaryWorkspaceId } from "@/lib/services/workspaces"
 
 /** Auth context we stash on AuthInfo.extra and reconstruct inside tools. */
@@ -19,6 +19,7 @@ type McpAuthExtra = {
   email: string | null | undefined
   image: string | null | undefined
   workspaceId: string
+  scopes: ApiKeyScope[]
 }
 
 /**
@@ -32,26 +33,23 @@ export async function verifyToken(
 ): Promise<AuthInfo | undefined> {
   if (!bearer) return undefined
 
-  const userId = await userIdForToken(bearer)
-  if (!userId) return undefined
+  const key = await apiKeyForToken(bearer)
+  if (!key) return undefined
 
-  const workspaceId = await getPrimaryWorkspaceId(userId)
+  const workspaceId = await getPrimaryWorkspaceId(key.userId)
   if (!workspaceId) return undefined
 
-  const [user] = await db
-    .select({ name: users.name, email: users.email, image: users.image })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
+  const user = await getUserProfile(key.userId)
 
   const extra: McpAuthExtra = {
-    userId,
+    userId: key.userId,
     name: user?.name,
     email: user?.email,
     image: user?.image,
     workspaceId,
+    scopes: key.scopes,
   }
-  return { token: bearer, clientId: userId, scopes: [], extra }
+  return { token: bearer, clientId: key.userId, scopes: key.scopes, extra }
 }
 
 export type ToolAuth = { ctx: AuthContext; workspaceId: string }
@@ -61,9 +59,23 @@ export function requireAuth(extra: { authInfo?: AuthInfo }): ToolAuth {
   const a = extra.authInfo?.extra as McpAuthExtra | undefined
   if (!a) throw new Error("Not authenticated.")
   return {
-    ctx: { userId: a.userId, name: a.name, email: a.email, image: a.image },
+    ctx: {
+      userId: a.userId,
+      name: a.name,
+      email: a.email,
+      image: a.image,
+      apiKeyScopes: a.scopes,
+    },
     workspaceId: a.workspaceId,
   }
+}
+
+export function requireWriteAuth(extra: { authInfo?: AuthInfo }): ToolAuth {
+  const a = extra.authInfo?.extra as McpAuthExtra | undefined
+  if (!a?.scopes.includes("mcp:write")) {
+    throw new AuthError("API key is missing mcp:write scope", 403)
+  }
+  return requireAuth(extra)
 }
 
 /**

@@ -17,10 +17,5 @@ export const planCreateSchema = z.object({
 
 export const planUpdateSchema = planCreateSchema.partial()
 
-export const planGenerateSchema = z.object({
-  idea: z.string().trim().min(1, "Describe what you want to build").max(4000),
-})
-
 export type PlanCreateInput = z.infer<typeof planCreateSchema>
 export type PlanUpdateInput = z.infer<typeof planUpdateSchema>
-export type PlanGenerateInput = z.infer<typeof planGenerateSchema>

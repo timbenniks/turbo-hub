@@ -1,0 +1,2 @@
+ALTER TABLE "api_keys" ADD COLUMN "scopes" jsonb DEFAULT '["api:read","api:write","mcp:read","mcp:write"]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "api_keys" ADD COLUMN "expires_at" timestamp with time zone;

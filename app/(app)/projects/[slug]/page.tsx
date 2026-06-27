@@ -1,7 +1,11 @@
 import Link from "next/link"
 
+import { Badge } from "@/components/ui/badge"
+import { listDecisions } from "@/lib/services/decisions"
+import { listLearnings } from "@/lib/services/learnings"
 import { getActivePlan } from "@/lib/services/plans"
 import { getProjectTaskCounts } from "@/lib/services/tasks"
+import { labelize } from "@/lib/labels"
 import { timeAsync } from "@/lib/timing"
 import { loadProject } from "./project-context"
 
@@ -23,10 +27,14 @@ export default async function ProjectOverviewPage({
   return timeAsync("render.project.overview", async () => {
   const { slug } = await params
   const { workspaceId, project } = await loadProject(slug)
-  const [activePlan, taskCounts] = await Promise.all([
+  const [activePlan, taskCounts, decisions, learnings] = await Promise.all([
     getActivePlan(workspaceId, project.id),
     getProjectTaskCounts(workspaceId, project.id),
+    listDecisions(workspaceId, project.id),
+    listLearnings(workspaceId, project.id),
   ])
+  const recentDecisions = decisions.slice(0, 5)
+  const recentLearnings = learnings.slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -62,6 +70,59 @@ export default async function ProjectOverviewPage({
         />
         <Field label="Notes" value={project.notes} />
       </dl>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">
+              Recent decisions
+            </p>
+            <Link
+              href={`/projects/${slug}/decisions`}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              View all
+            </Link>
+          </div>
+          {recentDecisions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None yet.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {recentDecisions.map((d) => (
+                <li key={d.id} className="flex items-center gap-2">
+                  <Badge variant="outline">{labelize(d.status)}</Badge>
+                  <span className="truncate">{d.title}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">
+              Recent learnings
+            </p>
+            <Link
+              href={`/projects/${slug}/learnings`}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              View all
+            </Link>
+          </div>
+          {recentLearnings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None yet.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {recentLearnings.map((l) => (
+                <li key={l.id} className="flex items-center gap-2">
+                  <Badge variant="secondary">{labelize(l.type)}</Badge>
+                  <span className="truncate">{l.title}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   )
   })

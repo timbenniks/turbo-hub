@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server"
 
-import { AuthError, requirePrimaryWorkspace } from "@/lib/auth/context"
-import { handle } from "@/lib/api/respond"
+import { requirePrimaryWorkspace } from "@/lib/auth/context"
+import { handle, notFound } from "@/lib/api/respond"
 import { addDependency, getTask, listDependencies } from "@/lib/services/tasks"
 import { taskDependencyCreateSchema } from "@/lib/validation/tasks"
 
@@ -20,7 +20,7 @@ export function POST(req: NextRequest, { params }: Params) {
     const { taskId } = await params
     const ctx = await requirePrimaryWorkspace()
     const task = await getTask(ctx.workspaceId, taskId)
-    if (!task) throw new AuthError("Task not found", 404)
+    if (!task) return notFound("Task not found")
     const input = taskDependencyCreateSchema.parse(await req.json())
     return addDependency(ctx, ctx.workspaceId, task.projectId, taskId, input)
   })

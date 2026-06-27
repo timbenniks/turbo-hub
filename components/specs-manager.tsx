@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Sparkles } from "lucide-react"
+import { Plus } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
@@ -27,23 +27,6 @@ export function SpecsManager({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-muted-foreground">Specs</h2>
         <div className="flex gap-2">
-          <Button
-            disabled={busy}
-            onClick={() =>
-              run(
-                () =>
-                  apiSend(
-                    `/api/projects/${projectId}/specs/generate`,
-                    "POST",
-                    {}
-                  ),
-                "Spec generated"
-              )
-            }
-          >
-            <Sparkles />
-            Generate spec
-          </Button>
           <SpecFormDialog
             title="New spec"
             trigger={
@@ -66,8 +49,8 @@ export function SpecsManager({
 
       {specs.length === 0 ? (
         <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-          No specs yet. Generate one from the active plan, or write one
-          manually.
+          No specs yet. Write one manually, or have your agent create one via
+          MCP.
         </p>
       ) : (
         <div className="divide-y divide-border rounded-xl border border-border">

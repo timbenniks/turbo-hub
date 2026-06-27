@@ -3,9 +3,7 @@ import { and, desc, eq, ne } from "drizzle-orm"
 import { db } from "@/db"
 import { plans, projects } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
-import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
-import { generatePlan } from "@/lib/ai/generate"
-import { bullets } from "@/lib/markdown"
+import { cacheTags, invalidateTags } from "@/lib/cache"
 import { recordActivity } from "@/lib/services/activity"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type { PlanCreateInput, PlanUpdateInput } from "@/lib/validation/plans"
@@ -41,24 +39,21 @@ export async function getActivePlan(
   workspaceId: string,
   projectId: string
 ): Promise<Plan | null> {
-  return cachedRead(
-    async () => {
-      const [row] = await db
-        .select()
-        .from(plans)
-        .where(
-          and(
-            eq(plans.workspaceId, workspaceId),
-            eq(plans.projectId, projectId),
-            eq(plans.status, "active")
-          )
-        )
-        .limit(1)
-      return row ?? null
-    },
-    ["getActivePlan", workspaceId, projectId],
-    [cacheTags.project(workspaceId, projectId)]
-  )
+  // Not cached: the row carries Date fields, and the Data Cache round-trips
+  // values through serialization (see lib/cache.ts). It's a single indexed
+  // lookup, so the cache wasn't buying much anyway.
+  const [row] = await db
+    .select()
+    .from(plans)
+    .where(
+      and(
+        eq(plans.workspaceId, workspaceId),
+        eq(plans.projectId, projectId),
+        eq(plans.status, "active")
+      )
+    )
+    .limit(1)
+  return row ?? null
 }
 
 export async function createPlan(
@@ -226,34 +221,4 @@ export async function deletePlan(
   })
   invalidateTags(cacheTags.project(workspaceId, plan.projectId))
   return plan
-}
-
-/**
- * Generate a draft plan from an idea prompt (spec §11.2). Lands as a draft for
- * the user to review and activate (agents suggest, humans approve).
- */
-export async function generatePlanForProject(
-  ctx: AuthContext,
-  workspaceId: string,
-  project: {
-    id: string
-    name: string
-    description: string | null
-    type: string
-    stack: string[]
-    goal: string | null
-    constraints: string | null
-  },
-  idea: string
-): Promise<Plan> {
-  const gen = await generatePlan(project, idea)
-  return createPlan(ctx, workspaceId, project.id, {
-    title: gen.title,
-    summary: gen.summary,
-    goals: bullets(gen.goals),
-    nonGoals: bullets(gen.nonGoals),
-    constraints: bullets(gen.constraints),
-    milestones: bullets(gen.milestones),
-    openQuestions: bullets(gen.openQuestions),
-  })
 }

@@ -1,18 +1,28 @@
 # Phase 2 — Context + memory layer
 
-> Spec slice 3 (§32). Goal: generate editable context packs for tasks, and stand
+> Spec slice 3 (§32). Goal: assemble editable context packs for tasks, and stand
 > up the durable memory primitives (decisions, learnings, patterns) that make the
 > hub compound. This is the product's differentiator (spec §10.3, §5).
 
 ## Outcome / demo
 
-On a task → generate a context pack → preview → edit → approve (frozen
+On a task → assemble a context pack → preview → edit → approve (frozen
 immutable). Create decisions and learnings; promote a learning to a pattern;
 search patterns; see relevant patterns surfaced in a new context pack.
 
+> **Status:** this phase is **largely built** — schema (decisions, learnings,
+> patterns, context_packs + FTS), services, MCP tools, REST routes, decisions/
+> learnings project tabs, top-level Patterns page, project overview memory
+> surfacing, and task context-pack panel all exist. Context packs assemble
+> **deterministically** (no model).
+>
+> **No in-app AI** — see the [README](./README.md) note. `assembleContextPack`
+> is pure assembly; learnings/decisions/patterns are hand-filled or written by a
+> local model via MCP.
+
 ## Prerequisites
 
-- Phase 1 complete (plans, specs, tasks, AI generation helpers).
+- Phase 1 complete (plans, specs, tasks).
 
 ## Tasks
 
@@ -34,7 +44,7 @@ Generate + migrate.
 
 ### 2. Services
 
-- `contextPacks.ts` — `generateContextPack(taskId)` assembles the 14-section
+- `contextPacks.ts` — `assembleContextPack(taskId)` assembles the 14-section
   structure (spec §13.7): project, goal, current phase, task, acceptance
   criteria, relevant spec excerpts, repo details, commands, conventions, relevant
   decisions, **relevant learnings**, **reusable patterns**, guardrails, expected
@@ -57,7 +67,7 @@ Generate + migrate.
 ### 4. API routes (spec §17.2)
 
 ```
-POST   /api/tasks/[taskId]/generate-context-pack
+POST   /api/tasks/[taskId]/context-packs
 GET    /api/projects/[projectId]/decisions   POST ...   PATCH /api/decisions/[id]
 GET    /api/projects/[projectId]/learnings   POST ...   PATCH /api/learnings/[id]
 POST   /api/learnings/[learningId]/promote
@@ -67,7 +77,7 @@ POST   /api/patterns/search
 
 ### 5. UI
 
-- **Task page: context pack section** (spec §23.5, §13.7) — Generate → Markdown
+- **Task page: context pack section** (spec §23.5, §13.7) — Assemble → Markdown
   preview with sections → edit → Approve. Show token estimate. Once sent, render
   read-only with a "frozen" badge.
 - **Decisions tab** (§13.10) + project Decisions list; create/link/status.
@@ -79,14 +89,14 @@ POST   /api/patterns/search
 
 ## Acceptance criteria (spec §28.5, §28.7)
 
-- [ ] Generate, preview, and edit a context pack from a task.
-- [ ] Context pack is stored immutably once sent; cannot be overwritten.
-- [ ] Context pack includes relevant patterns and learnings.
-- [ ] Create a learning; promote it to a pattern (human-confirmed).
-- [ ] Search patterns by query + filter by tag/stack/project type.
-- [ ] Create decisions linked to project/spec/task; set status.
-- [ ] No secrets ever appear in a generated context pack.
-- [ ] typecheck + lint clean; migrations apply.
+- [x] Assemble, preview, and edit a context pack from a task.
+- [x] Context pack is stored immutably once sent; cannot be overwritten.
+- [x] Context pack includes relevant patterns and learnings.
+- [x] Create a learning; promote it to a pattern (human-confirmed).
+- [x] Search patterns by query + filter by tag/stack/project type.
+- [x] Create decisions linked to project/spec/task; set status.
+- [ ] No secrets ever appear in an assembled context pack.
+- [x] typecheck + lint clean; migrations apply.
 
 ## Notes
 

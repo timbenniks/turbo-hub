@@ -10,26 +10,26 @@ import {
 } from "@/components/ui/card"
 import { ProjectCard } from "@/components/project-card"
 import { ProjectFormDialog } from "@/components/project-form-dialog"
+import Link from "next/link"
+
 import { requirePrimaryWorkspace } from "@/lib/auth/context"
 import { listRecentProjects } from "@/lib/services/projects"
+import { countActiveRuns } from "@/lib/services/runs"
 import { countTasksByStatus } from "@/lib/services/tasks"
 import { timeAsync } from "@/lib/timing"
 
 export default async function DashboardPage() {
   return timeAsync("render.dashboard", async () => {
   const ctx = await requirePrimaryWorkspace()
-  const [recent, blockedTaskCount] = await Promise.all([
+  const [recent, blockedTaskCount, activeRunCount] = await Promise.all([
     listRecentProjects(ctx.workspaceId),
     countTasksByStatus(ctx.workspaceId, "blocked"),
+    countActiveRuns(ctx.workspaceId),
   ])
 
   const placeholders = [
-    { title: "Active runs", hint: "Agent runs appear here (Phase 3)." },
-    { title: "Open pull requests", hint: "Linked PRs appear here (Phase 3+)." },
-    {
-      title: "Recent learnings",
-      hint: "Captured learnings appear here (Phase 2).",
-    },
+    { title: "Open pull requests", hint: "Linked PRs appear here (Phase 5)." },
+    { title: "Patterns", hint: "Reusable patterns library (Phase 2)." },
   ]
 
   return (
@@ -79,6 +79,20 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
         </Card>
+        <Link href="/runs">
+          <Card className="transition-colors hover:bg-muted/40">
+            <CardHeader>
+              <CardTitle className="text-sm">Active runs</CardTitle>
+              <CardDescription className="text-xs">
+                {activeRunCount === 0
+                  ? "No active runs."
+                  : `${activeRunCount} run${
+                      activeRunCount === 1 ? "" : "s"
+                    } in progress.`}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
         {placeholders.map((p) => (
           <Card key={p.title}>
             <CardHeader>

@@ -30,6 +30,8 @@ export const cacheTags = {
     `project:${workspaceId}:${projectId}`,
   /** Workspace-wide task aggregates (dashboard blocked count). */
   workspaceTasks: (workspaceId: string) => `workspace-tasks:${workspaceId}`,
+  /** Workspace-wide run aggregates (dashboard active-runs count). */
+  workspaceRuns: (workspaceId: string) => `workspace-runs:${workspaceId}`,
 }
 
 /**

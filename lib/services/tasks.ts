@@ -4,8 +4,6 @@ import { db } from "@/db"
 import { taskDependencies, tasks } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
 import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
-import type { TaskGen } from "@/lib/ai/schemas"
-import { bullets } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type {
@@ -135,58 +133,13 @@ export async function createTask(
   await recordActivity({
     workspaceId,
     projectId,
+    taskId: row.id,
     actorId: ctx.userId,
     type: "task.created",
     title: `Created task "${row.title}"`,
-    metadata: { taskId: row.id },
   })
   revalidateTaskCounts(workspaceId, projectId)
   return row
-}
-
-/** Bulk-insert generated tasks as Backlog drafts (spec §11.4). */
-export async function createTasksFromGenerated(
-  ctx: AuthContext,
-  workspaceId: string,
-  projectId: string,
-  specId: string,
-  genTasks: TaskGen["tasks"]
-): Promise<Task[]> {
-  await assertWorkspaceMember(ctx, workspaceId)
-  if (genTasks.length === 0) return []
-  const created = await db
-    .insert(tasks)
-    .values(
-      genTasks.map((t) => ({
-        workspaceId,
-        projectId,
-        specId,
-        title: t.title,
-        description: t.description,
-        status: "backlog" as const,
-        priority: t.priority,
-        runnerPreference: t.runnerPreference,
-        acceptanceCriteria: bullets(t.acceptanceCriteria),
-        createdBy: ctx.userId,
-      }))
-    )
-    .returning()
-
-  await Promise.all(
-    created.map((task) =>
-      recordActivity({
-        workspaceId,
-        projectId,
-        actorId: ctx.userId,
-        type: "task.created",
-        title: `Created task "${task.title}"`,
-        metadata: { taskId: task.id, generated: true, specId },
-      })
-    )
-  )
-
-  revalidateTaskCounts(workspaceId, projectId)
-  return created
 }
 
 export async function updateTask(
@@ -227,10 +180,10 @@ export async function updateTask(
   await recordActivity({
     workspaceId,
     projectId: row.projectId,
+    taskId: row.id,
     actorId: ctx.userId,
     type: "task.updated",
     title: `Updated task "${row.title}"`,
-    metadata: { taskId: row.id },
   })
   revalidateTaskCounts(workspaceId, row.projectId)
   return row
@@ -279,11 +232,11 @@ export async function addDependency(
     await recordActivity({
       workspaceId,
       projectId,
+      taskId,
       actorId: ctx.userId,
       type: "task.dependency_added",
       title: "Added task dependency",
       metadata: {
-        taskId,
         dependsOnTaskId: input.dependsOnTaskId,
         dependencyType: input.type,
       },

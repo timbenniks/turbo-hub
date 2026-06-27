@@ -13,7 +13,7 @@ import {
   projectListFiltersSchema,
   projectUpdateSchema,
 } from "@/lib/validation/projects"
-import { requireAuth, resolveProject } from "@/lib/mcp/context"
+import { requireAuth, requireWriteAuth, resolveProject } from "@/lib/mcp/context"
 import { fail, handle, ok } from "@/lib/mcp/format"
 
 const projectRef = z.string().describe("Project id, slug, or exact name")
@@ -65,7 +65,7 @@ export function registerProjectTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const p = await createProject(
           ctx,
           workspaceId,
@@ -85,7 +85,7 @@ export function registerProjectTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { project, ...rest } = args
         const id = await resolveProject(workspaceId, project)
         const p = await updateProject(
@@ -114,7 +114,7 @@ export function registerProjectTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const id = await resolveProject(workspaceId, args.project)
         const p = await archiveProject(ctx, workspaceId, id)
         return p

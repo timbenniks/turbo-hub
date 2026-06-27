@@ -11,16 +11,22 @@ function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
+// No `data-slot` here: the trigger usually forwards to our <Button> via
+// `render`, and a competing data-slot on both nodes makes base-ui's render
+// merge resolve it inconsistently between SSR and hydration. The rendered
+// element keeps the Button's own data-slot="button".
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+  return <DialogPrimitive.Trigger {...props} />
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
 }
 
+// No `data-slot` here either — same reason as DialogTrigger (it forwards to a
+// <Button> via `render`).
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+  return <DialogPrimitive.Close {...props} />
 }
 
 function DialogOverlay({
@@ -61,7 +67,6 @@ function DialogContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
-            data-slot="dialog-close"
             render={
               <Button
                 variant="ghost"

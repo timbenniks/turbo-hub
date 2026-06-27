@@ -1,5 +1,24 @@
 # Product requirements document: Agent-native project hub
 
+> **Architecture decision (2026-06-27): the hub makes no server-side LLM calls.**
+> All AI/generation that earlier drafts of this spec describe as happening
+> "in-app" was removed. The hub is a pure data + MCP layer; the intelligence
+> lives in the MCP **client** (a local model such as Claude Code). Wherever this
+> document says the system/assistant "generates" a plan, spec, tasks, a learning,
+> etc., read it as one of:
+>
+> 1. **Hand-filled** by a human through the web forms / REST API, or
+> 2. **Written by a local model through the MCP tools** (the model calls
+>    `create_plan`, `create_spec`, `create_task`, `create_decision`, … directly), or
+> 3. **Pasted in** via the "external agent" flow (copy a project-aware prompt →
+>    run it in your own agent → paste the Markdown reply back).
+>
+> Context packs are assembled **deterministically** (string concatenation), not by
+> a model. There is no Vercel AI Gateway, no Anthropic API key, and no
+> `ai`/`@ai-sdk/*` dependency in the app. The only LLM in the picture is the
+> Phase 7 **local runner**, which is itself the local model executing tasks — not
+> the hub calling out to one.
+
 ## 1. Working title
 
 **Agent-native project hub**
@@ -332,13 +351,17 @@ The user creates a project with:
 - Constraints
 - Notes
 
-The system creates a default project overview and optionally prompts the user to generate a plan.
+The system creates a default project overview. (Per the decision note at the top
+of this doc, the hub never generates content itself — plans/specs/tasks are
+hand-filled, written by a local model via MCP, or pasted in.)
 
-### 11.2 Generate a plan
+### 11.2 Producing a plan
 
-The user describes what they want to build.
+The user describes what they want to build to their local model (or writes it
+themselves). A plan is then created via MCP (`create_plan`) or the web form, or
+pasted in via the external-agent flow.
 
-The assistant generates:
+A plan captures:
 
 - Product summary
 - Goals
@@ -2227,7 +2250,10 @@ Components:
 - TypeScript
 - Tailwind CSS
 - shadcn/ui primitives
-- Vercel AI SDK for chat and structured generation
+- **No in-app LLM SDK.** The hub makes no model calls itself (see the decision
+  note at the top of this doc). Generation is done by the MCP client (a local
+  model) or by hand; the hub only stores and serves data. Removed: Vercel AI
+  Gateway / SDK and any provider packages.
 - Auth.js for authentication
 - Drizzle ORM
 - Neon Postgres

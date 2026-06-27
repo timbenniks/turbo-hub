@@ -10,7 +10,7 @@ import {
   updatePlan,
 } from "@/lib/services/plans"
 import { planCreateSchema, planUpdateSchema } from "@/lib/validation/plans"
-import { requireAuth, resolveProject } from "@/lib/mcp/context"
+import { requireAuth, requireWriteAuth, resolveProject } from "@/lib/mcp/context"
 import { fail, handle, ok } from "@/lib/mcp/format"
 
 const projectRef = z.string().describe("Project id, slug, or exact name")
@@ -44,7 +44,7 @@ export function registerPlanTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { project, ...rest } = args
         const id = await resolveProject(workspaceId, project)
         const plan = await createPlan(
@@ -83,7 +83,7 @@ export function registerPlanTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const { planId, ...rest } = args
         const plan = await updatePlan(
           ctx,
@@ -110,7 +110,7 @@ export function registerPlanTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const plan = await deletePlan(ctx, workspaceId, args.planId)
         return plan ? ok(plan, `Deleted plan "${plan.title}".`) : fail("Plan not found.")
       })
@@ -127,7 +127,7 @@ export function registerPlanTools(server: McpServer) {
     },
     (args, extra) =>
       handle(async () => {
-        const { ctx, workspaceId } = requireAuth(extra)
+        const { ctx, workspaceId } = requireWriteAuth(extra)
         const plan = await markPlanActive(ctx, workspaceId, args.planId)
         return plan
           ? ok(plan, `Activated plan "${plan.title}".`)

@@ -21,12 +21,5 @@ export const specCreateSchema = z.object({
 
 export const specUpdateSchema = specCreateSchema.partial()
 
-export const specGenerateSchema = z.object({
-  // Optional focus. Omit to spec the next milestone from the active plan.
-  instruction: z.string().trim().max(4000).optional(),
-  planId: z.string().optional(),
-})
-
 export type SpecCreateInput = z.infer<typeof specCreateSchema>
 export type SpecUpdateInput = z.infer<typeof specUpdateSchema>
-export type SpecGenerateInput = z.infer<typeof specGenerateSchema>

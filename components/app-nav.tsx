@@ -31,8 +31,8 @@ const NAV: NavItem[] = [
     enabled: true,
   },
   { href: "/projects", label: "Projects", icon: Boxes, enabled: true },
-  { href: "/runs", label: "Runs", icon: Sparkles, enabled: false },
-  { href: "/patterns", label: "Patterns", icon: Puzzle, enabled: false },
+  { href: "/runs", label: "Runs", icon: Sparkles, enabled: true },
+  { href: "/patterns", label: "Patterns", icon: Puzzle, enabled: true },
   { href: "/decisions", label: "Decisions", icon: Lightbulb, enabled: false },
   {
     href: "/pull-requests",

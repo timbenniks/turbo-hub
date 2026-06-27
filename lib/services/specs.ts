@@ -3,11 +3,8 @@ import { and, desc, eq } from "drizzle-orm"
 import { db } from "@/db"
 import { specVersions, specs } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
-import { generateSpec, generateTasks } from "@/lib/ai/generate"
-import { bullets, sections } from "@/lib/markdown"
+import { sections } from "@/lib/markdown"
 import { recordActivity } from "@/lib/services/activity"
-import { getActivePlan, getPlan, type Plan } from "@/lib/services/plans"
-import { createTasksFromGenerated } from "@/lib/services/tasks"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type { SpecCreateInput, SpecUpdateInput } from "@/lib/validation/specs"
 
@@ -180,99 +177,4 @@ export async function markSpecReady(
     title: `Marked spec "${row.title}" ready`,
   })
   return row
-}
-
-type ProjectContext = {
-  id: string
-  name: string
-  description: string | null
-  type: string
-  stack: string[]
-  goal: string | null
-  constraints: string | null
-}
-
-/** Assemble the full plan (not just its summary) into context for the model. */
-function planContext(plan: Plan | null): string | null {
-  if (!plan) return null
-  const parts = [
-    plan.summary && `Summary:\n${plan.summary}`,
-    plan.goals && `Goals:\n${plan.goals}`,
-    plan.nonGoals && `Non-goals:\n${plan.nonGoals}`,
-    plan.constraints && `Constraints:\n${plan.constraints}`,
-    plan.milestones && `Milestones:\n${plan.milestones}`,
-    plan.openQuestions && `Open questions:\n${plan.openQuestions}`,
-    plan.body && `Full plan:\n${plan.body}`,
-  ].filter(Boolean)
-  return parts.length ? parts.join("\n\n") : null
-}
-
-/** Generate a draft spec from the active plan (or an optional focus). */
-export async function generateSpecForProject(
-  ctx: AuthContext,
-  workspaceId: string,
-  project: ProjectContext,
-  instruction?: string | null,
-  planId?: string
-): Promise<Spec> {
-  const plan = planId
-    ? await getPlan(workspaceId, planId)
-    : await getActivePlan(workspaceId, project.id)
-
-  const gen = await generateSpec(
-    project,
-    planContext(plan),
-    instruction ?? null
-  )
-
-  return createSpec(ctx, workspaceId, project.id, {
-    title: gen.title,
-    planId: plan?.id,
-    summary: gen.summary,
-    problem: gen.problem,
-    goal: gen.goal,
-    scope: gen.scope,
-    nonGoals: bullets(gen.nonGoals),
-    userStories: bullets(gen.userStories),
-    uxRequirements: bullets(gen.uxRequirements),
-    dataRequirements: bullets(gen.dataRequirements),
-    apiRequirements: bullets(gen.apiRequirements),
-    acceptanceCriteria: bullets(gen.acceptanceCriteria),
-    risks: bullets(gen.risks),
-    implementationNotes: gen.implementationNotes,
-  })
-}
-
-/**
- * Generate agent-executable tasks from a spec (spec §11.4). Tasks land as
- * Backlog drafts for human review (agents suggest, humans approve).
- */
-export async function generateTasksFromSpec(
-  ctx: AuthContext,
-  workspaceId: string,
-  project: ProjectContext,
-  spec: Spec
-) {
-  const gen = await generateTasks(project, {
-    title: spec.title,
-    summary: spec.summary,
-    body: specBody(spec),
-  })
-
-  const created = await createTasksFromGenerated(
-    ctx,
-    workspaceId,
-    project.id,
-    spec.id,
-    gen.tasks
-  )
-
-  await recordActivity({
-    workspaceId,
-    projectId: project.id,
-    actorId: ctx.userId,
-    type: "spec.tasks_generated",
-    title: `Generated ${created.length} tasks from spec "${spec.title}"`,
-  })
-  return created
 }

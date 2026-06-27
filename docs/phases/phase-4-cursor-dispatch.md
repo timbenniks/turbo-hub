@@ -49,7 +49,7 @@ Implement the `Runner` interface (spec §15.4, §20):
 
 Spec §20.3 ordered flow, enforced server-side:
 
-1. Generate context pack → 2. user reviews/approves → 3. create hub run →
+1. Assemble context pack → 2. user reviews/approves → 3. create hub run →
 4. send to Cursor → 5. store external id → 6. mark queued/running →
 7. poll/receive updates → 8. attach PR → 9. update task status →
 10. extract learning.

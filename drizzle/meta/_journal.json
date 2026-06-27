@@ -36,6 +36,34 @@
       "when": 1782501324545,
       "tag": "0004_curvy_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782546989653,
+      "tag": "0005_dark_namorita",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782548641393,
+      "tag": "0006_many_lorna_dane",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782549908846,
+      "tag": "0007_true_namorita",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782555288853,
+      "tag": "0008_api_key_scopes",
+      "breakpoints": true
     }
   ]
 }
