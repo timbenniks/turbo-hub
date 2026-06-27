@@ -17,32 +17,34 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   return timeAsync("render.app.layout", async () => {
-  const user = await requireUser().catch(() => null)
-  if (!user) redirect("/login")
+    const user = await requireUser().catch(() => null)
+    if (!user) redirect("/login")
 
-  return (
-    <div className="flex min-h-svh">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border p-3 md:flex">
-        <Link
-          href="/dashboard"
-          className="mb-4 px-2.5 font-mono text-sm font-semibold tracking-tight"
-        >
-          turbo-hub
-        </Link>
-        <AppNav />
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 items-center justify-end gap-3 border-b border-border px-4">
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            image={user.image}
-          />
+    return (
+      <div className="flex min-h-svh flex-col">
+        <header className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-xs backdrop-blur">
+          <div className="flex min-h-16 items-center gap-5 px-6 lg:px-10">
+            <Link
+              href="/dashboard"
+              className="shrink-0 font-mono text-base font-semibold tracking-tight"
+            >
+              turbo-hub
+            </Link>
+            <AppNav />
+            <div className="ml-auto shrink-0">
+              <UserMenu
+                name={user.name}
+                email={user.email}
+                image={user.image}
+              />
+            </div>
+          </div>
         </header>
-        <main className="min-w-0 flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 px-6 py-8 lg:px-10 lg:py-10">
+          {children}
+        </main>
+        <Toaster />
       </div>
-      <Toaster />
-    </div>
-  )
+    )
   })
 }

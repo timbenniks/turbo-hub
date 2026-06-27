@@ -1,7 +1,7 @@
 import { and, count, desc, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/db"
-import { agentRunEvents, agentRuns, projects } from "@/db/schema"
+import { agentRunEvents, agentRuns, projects, tasks } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
 import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
 import type { AgentRunStatus } from "@/lib/enums"
@@ -82,7 +82,10 @@ export async function listTaskRuns(
     .orderBy(desc(agentRuns.createdAt))
 }
 
-export type WorkspaceRunListItem = AgentRun & { projectName: string | null }
+export type WorkspaceRunListItem = AgentRun & {
+  projectName: string | null
+  taskTitle: string | null
+}
 
 /** Workspace runs joined with their project name (for the cross-project list). */
 export async function listWorkspaceRunsWithProject(
@@ -90,13 +93,22 @@ export async function listWorkspaceRunsWithProject(
   opts: { limit?: number } = {}
 ): Promise<WorkspaceRunListItem[]> {
   const rows = await db
-    .select({ run: agentRuns, projectName: projects.name })
+    .select({
+      run: agentRuns,
+      projectName: projects.name,
+      taskTitle: tasks.title,
+    })
     .from(agentRuns)
     .innerJoin(projects, eq(agentRuns.projectId, projects.id))
+    .leftJoin(tasks, eq(agentRuns.taskId, tasks.id))
     .where(eq(agentRuns.workspaceId, workspaceId))
     .orderBy(desc(agentRuns.createdAt))
     .limit(opts.limit ?? 50)
-  return rows.map((r) => ({ ...r.run, projectName: r.projectName }))
+  return rows.map((r) => ({
+    ...r.run,
+    projectName: r.projectName,
+    taskTitle: r.taskTitle,
+  }))
 }
 
 export async function getRun(

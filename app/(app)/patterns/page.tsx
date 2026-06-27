@@ -9,20 +9,18 @@ export default async function PatternsPage() {
     const patterns = await listPatterns(ctx.workspaceId)
 
     return (
-      <div className="mx-auto max-w-4xl">
-        <PatternsManager
-          initial={patterns.map((p) => ({
-            id: p.id,
-            summary: p.summary,
-            body: p.body,
-            appliesTo: p.appliesTo,
-            type: p.type,
-            tags: p.tags,
-            stack: p.stack,
-            usageCount: p.usageCount,
-          }))}
-        />
-      </div>
+      <PatternsManager
+        initial={patterns.map((p) => ({
+          id: p.id,
+          summary: p.summary,
+          body: p.body,
+          appliesTo: p.appliesTo,
+          type: p.type,
+          tags: p.tags,
+          stack: p.stack,
+          usageCount: p.usageCount,
+        }))}
+      />
     )
   })
 }

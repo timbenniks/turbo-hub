@@ -14,9 +14,9 @@ export default async function RunsPage() {
     })
 
     return (
-      <div className="mx-auto max-w-4xl space-y-4">
+      <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Runs</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Runs</h1>
           <p className="text-sm text-muted-foreground">
             Agent runs across all your projects.
           </p>
@@ -24,8 +24,8 @@ export default async function RunsPage() {
 
         {runs.length === 0 ? (
           <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
-            No runs yet. Start one from a task, or have your agent create one via
-            MCP.
+            No runs yet. Start one from a task, or have your agent create one
+            via MCP.
           </p>
         ) : (
           <div className="divide-y divide-border rounded-xl border border-border">
@@ -37,9 +37,10 @@ export default async function RunsPage() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {run.projectName ?? "Unknown project"}
+                    {run.taskTitle ?? "No task linked"}
                   </p>
                   <p className="text-xs text-muted-foreground">
+                    {run.projectName ?? "Unknown project"} ·{" "}
                     {labelize(run.runnerType)} ·{" "}
                     {new Date(run.createdAt).toLocaleString()}
                   </p>

@@ -48,7 +48,7 @@ export function AppNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="flex flex-col gap-0.5">
+    <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {NAV.map((item) => {
         const active =
           item.enabled &&
@@ -59,10 +59,10 @@ export function AppNav() {
           return (
             <span
               key={item.href}
-              className="flex cursor-not-allowed items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground/50"
+              className="flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground/45"
               title="Coming in a later phase"
             >
-              <Icon className="size-4" />
+              <Icon className="size-3.5" />
               {item.label}
             </span>
           )
@@ -73,13 +73,13 @@ export function AppNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+              "flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-muted font-medium text-foreground"
+                ? "bg-muted text-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-3.5" />
             {item.label}
           </Link>
         )

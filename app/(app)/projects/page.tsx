@@ -17,46 +17,51 @@ export default async function ProjectsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   return timeAsync("render.projects", async () => {
-  const ctx = await requirePrimaryWorkspace()
-  const raw = await searchParams
-  const filters = projectListFiltersSchema.parse(raw)
+    const ctx = await requirePrimaryWorkspace()
+    const raw = await searchParams
+    const filters = projectListFiltersSchema.parse(raw)
 
-  const [projects, tags] = await Promise.all([
-    listProjects(ctx.workspaceId, filters),
-    listTags(ctx.workspaceId),
-  ])
+    const [projects, tags] = await Promise.all([
+      listProjects(ctx.workspaceId, filters),
+      listTags(ctx.workspaceId),
+    ])
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
-        <ProjectFormDialog
-          tags={tags}
-          trigger={
-            <Button>
-              <Plus />
-              New project
-            </Button>
-          }
-        />
-      </div>
-
-      <ProjectsFilter tags={tags} />
-
-      {projects.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No projects match your filters.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} />
-          ))}
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Plan, scope, and track agent-ready workspaces.
+            </p>
+          </div>
+          <ProjectFormDialog
+            tags={tags}
+            trigger={
+              <Button>
+                <Plus />
+                New project
+              </Button>
+            }
+          />
         </div>
-      )}
-    </div>
-  )
+
+        <ProjectsFilter tags={tags} />
+
+        {projects.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              No projects match your filters.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((p) => (
+              <ProjectCard key={p.id} project={p} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
   })
 }

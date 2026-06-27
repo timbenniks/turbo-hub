@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { labelize } from "@/lib/labels"
 import { listProjectRuns } from "@/lib/services/runs"
+import { listTasks } from "@/lib/services/tasks"
 import { timeAsync } from "@/lib/timing"
 import { loadProject } from "../project-context"
 
@@ -14,7 +15,11 @@ export default async function ProjectRunsPage({
   return timeAsync("render.project.runs", async () => {
     const { slug } = await params
     const { workspaceId, project } = await loadProject(slug)
-    const runs = await listProjectRuns(workspaceId, project.id)
+    const [runs, tasks] = await Promise.all([
+      listProjectRuns(workspaceId, project.id),
+      listTasks(workspaceId, project.id),
+    ])
+    const taskTitleById = new Map(tasks.map((task) => [task.id, task.title]))
 
     return (
       <div className="space-y-4">
@@ -40,9 +45,12 @@ export default async function ProjectRunsPage({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {labelize(run.runnerType)} run
+                    {run.taskId
+                      ? (taskTitleById.get(run.taskId) ?? "Unknown task")
+                      : "No task linked"}
                   </p>
                   <p className="text-xs text-muted-foreground">
+                    {labelize(run.runnerType)} ·{" "}
                     {new Date(run.createdAt).toLocaleString()}
                   </p>
                 </div>

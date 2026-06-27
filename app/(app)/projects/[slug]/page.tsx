@@ -1,12 +1,19 @@
 import Link from "next/link"
 
 import { ProjectRepositoryPanel } from "@/components/project-repository-panel"
+import {
+  ProjectWorkflowSpine,
+  type WorkflowMetric,
+} from "@/components/project-workflow-spine"
 import { Badge } from "@/components/ui/badge"
 import { listDecisions } from "@/lib/services/decisions"
 import { listLearnings } from "@/lib/services/learnings"
 import { getActivePlan } from "@/lib/services/plans"
+import { listPullRequestsWithRepository } from "@/lib/services/pullRequests"
 import { getRepository } from "@/lib/services/repositories"
-import { getProjectTaskCounts } from "@/lib/services/tasks"
+import { listProjectRuns } from "@/lib/services/runs"
+import { listSpecs } from "@/lib/services/specs"
+import { getProjectTaskCounts, listTasks } from "@/lib/services/tasks"
 import { labelize } from "@/lib/labels"
 import { timeAsync } from "@/lib/timing"
 import { loadProject } from "./project-context"
@@ -21,6 +28,18 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
+function metrics<T extends string>(
+  rows: { status?: T; state?: T }[],
+  key: "status" | "state"
+): WorkflowMetric[] {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const value = row[key]
+    if (value) counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([label, value]) => ({ label, value }))
+}
+
 export default async function ProjectOverviewPage({
   params,
 }: {
@@ -29,21 +48,51 @@ export default async function ProjectOverviewPage({
   return timeAsync("render.project.overview", async () => {
     const { slug } = await params
     const { workspaceId, project } = await loadProject(slug)
-    const [activePlan, taskCounts, decisions, learnings, repository] =
-      await Promise.all([
-        getActivePlan(workspaceId, project.id),
-        getProjectTaskCounts(workspaceId, project.id),
-        listDecisions(workspaceId, project.id),
-        listLearnings(workspaceId, project.id),
-        project.repositoryId
-          ? getRepository(workspaceId, project.repositoryId)
-          : Promise.resolve(null),
-      ])
+    const [
+      activePlan,
+      taskCounts,
+      decisions,
+      learnings,
+      repository,
+      specs,
+      tasks,
+      runs,
+      pullRequests,
+    ] = await Promise.all([
+      getActivePlan(workspaceId, project.id),
+      getProjectTaskCounts(workspaceId, project.id),
+      listDecisions(workspaceId, project.id),
+      listLearnings(workspaceId, project.id),
+      project.repositoryId
+        ? getRepository(workspaceId, project.repositoryId)
+        : Promise.resolve(null),
+      listSpecs(workspaceId, project.id),
+      listTasks(workspaceId, project.id),
+      listProjectRuns(workspaceId, project.id),
+      listPullRequestsWithRepository(workspaceId, project.id),
+    ])
     const recentDecisions = decisions.slice(0, 5)
     const recentLearnings = learnings.slice(0, 5)
 
     return (
       <div className="space-y-6">
+        <ProjectWorkflowSpine
+          projectHref={`/projects/${slug}`}
+          plan={
+            activePlan
+              ? {
+                  title: activePlan.title,
+                  status: activePlan.status,
+                  href: `/projects/${slug}/plan`,
+                }
+              : null
+          }
+          specs={metrics(specs, "status")}
+          tasks={metrics(tasks, "status")}
+          runs={metrics(runs, "status")}
+          pullRequests={metrics(pullRequests, "state")}
+        />
+
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Active plan</p>

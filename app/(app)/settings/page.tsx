@@ -14,38 +14,45 @@ export default async function SettingsPage() {
   ])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Access, credentials, and external agent configuration.
+        </p>
+      </div>
 
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-sm font-medium">API keys</h2>
-          <p className="text-sm text-muted-foreground">
-            Authenticate external agents, CLIs, and MCP servers against this
-            workspace&apos;s API. Send the token as{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              Authorization: Bearer &lt;token&gt;
-            </code>{" "}
-            (or{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              X-API-Key
-            </code>
-            ). A token acts as you.
-          </p>
-        </div>
-        <ApiKeysManager keys={keys} />
-      </section>
+      <div className="grid gap-8 xl:grid-cols-2">
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium">API keys</h2>
+            <p className="text-sm text-muted-foreground">
+              Authenticate external agents, CLIs, and MCP servers against this
+              workspace&apos;s API. Send the token as{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                Authorization: Bearer &lt;token&gt;
+              </code>{" "}
+              (or{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                X-API-Key
+              </code>
+              ). A token acts as you.
+            </p>
+          </div>
+          <ApiKeysManager keys={keys} />
+        </section>
 
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-sm font-medium">Integrations</h2>
-          <p className="text-sm text-muted-foreground">
-            Store provider credentials for repository and runner adapters.
-            Secret values are encrypted at rest and never shown again.
-          </p>
-        </div>
-        <IntegrationsManager integrations={integrations} />
-      </section>
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium">Integrations</h2>
+            <p className="text-sm text-muted-foreground">
+              Store provider credentials for repository and runner adapters.
+              Secret values are encrypted at rest and never shown again.
+            </p>
+          </div>
+          <IntegrationsManager integrations={integrations} />
+        </section>
+      </div>
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, GitPullRequest, Play, Plus } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Badge } from "@/components/ui/badge"
@@ -14,12 +14,19 @@ import {
   type ContextPackView,
 } from "@/components/context-pack-panel"
 import { TaskFormDialog } from "@/components/task-form-dialog"
+import { WorkLineage } from "@/components/work-lineage"
 import { apiSend } from "@/lib/client"
 import { TASK_STATUSES, type TaskStatus } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
 import type { Task, TaskDependency } from "@/lib/services/tasks"
 
-type SpecOption = { id: string; title: string }
+type PlanOption = { id: string; title: string; status: string }
+type SpecOption = {
+  id: string
+  title: string
+  status: string
+  planId: string | null
+}
 type TaskActivityItem = {
   id: string
   title: string
@@ -29,7 +36,9 @@ type TaskActivityItem = {
 
 export function TaskDetail({
   slug,
+  project,
   task,
+  plans,
   specs,
   siblings,
   subtasks,
@@ -37,10 +46,13 @@ export function TaskDetail({
   activity,
   contextPacks,
   runs,
+  pullRequests,
   dispatchContextPackId,
 }: {
   slug: string
+  project: { id: string; name: string }
   task: Task
+  plans: PlanOption[]
   specs: SpecOption[]
   siblings: { id: string; title: string }[]
   subtasks: Task[]
@@ -48,6 +60,13 @@ export function TaskDetail({
   activity: TaskActivityItem[]
   contextPacks: ContextPackView[]
   runs: { id: string; status: string; runnerType: string; createdAt: string }[]
+  pullRequests: {
+    id: string
+    title: string
+    url: string | null
+    state: string
+    runId: string | null
+  }[]
   dispatchContextPackId: string | null
 }) {
   const { busy, run } = useAsyncAction()
@@ -55,6 +74,9 @@ export function TaskDetail({
   const [, startTransition] = React.useTransition()
   const titleById = new Map(siblings.map((s) => [s.id, s.title]))
   const relatedSpec = specs.find((s) => s.id === task.specId)
+  const relatedPlan =
+    plans.find((p) => p.id === relatedSpec?.planId) ??
+    plans.find((p) => p.status === "active")
 
   async function updateStatus(nextStatus: TaskStatus) {
     const previousStatus = status
@@ -123,25 +145,97 @@ export function TaskDetail({
         </div>
       </div>
 
+      <WorkLineage
+        items={[
+          {
+            label: "Project",
+            title: project.name,
+            href: `/projects/${slug}`,
+          },
+          relatedPlan
+            ? {
+                label: "Plan",
+                title: relatedPlan.title,
+                href: `/projects/${slug}/plan`,
+                status: labelize(relatedPlan.status),
+              }
+            : {
+                label: "Plan",
+                title: "No linked plan",
+                missing: true,
+              },
+          relatedSpec
+            ? {
+                label: "Spec",
+                title: relatedSpec.title,
+                href: `/projects/${slug}/specs/${relatedSpec.id}`,
+                status: labelize(relatedSpec.status),
+              }
+            : {
+                label: "Spec",
+                title: "No linked spec",
+                missing: true,
+              },
+          {
+            label: "Task",
+            title: task.title,
+            status: labelize(status),
+          },
+        ]}
+      />
+
       {task.description && (
         <p className="text-sm whitespace-pre-wrap">{task.description}</p>
       )}
 
       <ReadField label="Acceptance criteria" value={task.acceptanceCriteria} />
 
-      {relatedSpec && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">
-            Related spec
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">Source</p>
+          <p className="mt-1 text-sm">
+            {relatedSpec ? (
+              <Link
+                href={`/projects/${slug}/specs/${relatedSpec.id}`}
+                className="hover:underline"
+              >
+                {relatedSpec.title}
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">No spec linked</span>
+            )}
           </p>
-          <Link
-            href={`/projects/${slug}/specs/${relatedSpec.id}`}
-            className="text-sm hover:underline"
-          >
-            {relatedSpec.title}
-          </Link>
+          {relatedPlan && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Plan: {relatedPlan.title}
+            </p>
+          )}
         </div>
-      )}
+        <div className="rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">Execution</p>
+          <p className="mt-1 flex items-center gap-1 text-sm">
+            <Play className="size-3.5 text-muted-foreground" />
+            {runs.length} run{runs.length === 1 ? "" : "s"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {contextPacks.length} context pack
+            {contextPacks.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">Output</p>
+          <p className="mt-1 flex items-center gap-1 text-sm">
+            <GitPullRequest className="size-3.5 text-muted-foreground" />
+            {pullRequests.length} linked PR
+            {pullRequests.length === 1 ? "" : "s"}
+          </p>
+          {pullRequests[0] && (
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              Latest: {pullRequests[0].title}
+            </p>
+          )}
+        </div>
+      </div>
 
       <ContextPackPanel taskId={task.id} packs={contextPacks} />
 
@@ -183,6 +277,49 @@ export function TaskDetail({
                 <span className="text-xs text-muted-foreground">
                   {new Date(r.createdAt).toLocaleDateString()}
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">
+          Pull request output
+        </p>
+        {pullRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No PRs linked to this task yet.
+          </p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {pullRequests.map((pr) => (
+              <li
+                key={pr.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2"
+              >
+                <GitPullRequest className="size-4 text-muted-foreground" />
+                {pr.url ? (
+                  <a
+                    href={pr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline"
+                  >
+                    {pr.title}
+                  </a>
+                ) : (
+                  <span>{pr.title}</span>
+                )}
+                <Badge variant="outline">{labelize(pr.state)}</Badge>
+                {pr.runId && (
+                  <Link
+                    href={`/runs/${pr.runId}`}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Run
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

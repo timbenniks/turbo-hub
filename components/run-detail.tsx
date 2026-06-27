@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Markdown } from "@/components/ui/markdown"
 import { NativeSelect } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea"
+import { WorkLineage } from "@/components/work-lineage"
 import { apiSend } from "@/lib/client"
 import {
   AGENT_RUN_EVENT_TYPES,
@@ -70,8 +71,12 @@ export function RunDetail({
   run,
   events,
   pullRequests,
+  project,
+  plan,
+  spec,
   task,
-  contextPackTitle,
+  repository,
+  contextPack,
   projectId,
   projectSlug,
 }: {
@@ -86,8 +91,22 @@ export function RunDetail({
   }
   events: RunEventView[]
   pullRequests: RunPullRequestView[]
-  task: { id: string; title: string } | null
-  contextPackTitle: string | null
+  project: { id: string; name: string; slug: string }
+  plan: { id: string; title: string; status: string } | null
+  spec: { id: string; title: string; status: string } | null
+  task: {
+    id: string
+    title: string
+    status: string
+    acceptanceCriteria: string | null
+  } | null
+  repository: {
+    id: string
+    fullName: string
+    url: string
+    defaultBranch: string
+  } | null
+  contextPack: { id: string; title: string; status: string } | null
   projectId: string
   projectSlug: string
 }) {
@@ -122,7 +141,7 @@ export function RunDetail({
                 Task: {task.title}
               </Link>
             )}
-            {contextPackTitle && <span>Context: {contextPackTitle}</span>}
+            {contextPack && <span>Context: {contextPack.title}</span>}
             {run.branchName && <span>Branch: {run.branchName}</span>}
           </div>
         </div>
@@ -159,6 +178,98 @@ export function RunDetail({
           )}
         </div>
       </div>
+
+      <WorkLineage
+        items={[
+          {
+            label: "Project",
+            title: project.name,
+            href: `/projects/${project.slug}`,
+          },
+          plan
+            ? {
+                label: "Plan",
+                title: plan.title,
+                href: `/projects/${project.slug}/plan`,
+                status: labelize(plan.status),
+              }
+            : { label: "Plan", title: "No linked plan", missing: true },
+          spec
+            ? {
+                label: "Spec",
+                title: spec.title,
+                href: `/projects/${project.slug}/specs/${spec.id}`,
+                status: labelize(spec.status),
+              }
+            : { label: "Spec", title: "No linked spec", missing: true },
+          task
+            ? {
+                label: "Task",
+                title: task.title,
+                href: `/projects/${project.slug}/tasks/${task.id}`,
+                status: labelize(task.status),
+              }
+            : { label: "Task", title: "No linked task", missing: true },
+          {
+            label: "Run",
+            title: labelize(run.runnerType),
+            status: labelize(run.status),
+          },
+        ]}
+      />
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Run context
+          </p>
+          <dl className="space-y-2 text-sm">
+            <ContextRow label="Project" value={project.name} />
+            <ContextRow label="Plan" value={plan?.title ?? "No linked plan"} />
+            <ContextRow label="Spec" value={spec?.title ?? "No linked spec"} />
+            <ContextRow label="Task" value={task?.title ?? "No linked task"} />
+            <ContextRow
+              label="Context pack"
+              value={contextPack?.title ?? "No context pack"}
+            />
+          </dl>
+        </div>
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Execution target
+          </p>
+          <dl className="space-y-2 text-sm">
+            <ContextRow
+              label="Repository"
+              value={repository?.fullName ?? "No repository linked"}
+              href={repository?.url}
+            />
+            <ContextRow
+              label="Base branch"
+              value={repository?.defaultBranch ?? "Unknown"}
+            />
+            <ContextRow
+              label="Run branch"
+              value={run.branchName ?? "Not set"}
+            />
+            <ContextRow
+              label="Pull requests"
+              value={`${pullRequests.length} linked`}
+            />
+          </dl>
+        </div>
+      </div>
+
+      {task?.acceptanceCriteria && (
+        <div className="space-y-1 rounded-lg border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Acceptance criteria
+          </p>
+          <p className="text-sm whitespace-pre-wrap">
+            {task.acceptanceCriteria}
+          </p>
+        </div>
+      )}
 
       {run.prompt && (
         <div className="space-y-1">
@@ -273,6 +384,36 @@ export function RunDetail({
           </ol>
         )}
       </div>
+    </div>
+  )
+}
+
+function ContextRow({
+  label,
+  value,
+  href,
+}: {
+  label: string
+  value: string
+  href?: string
+}) {
+  return (
+    <div className="grid grid-cols-[7rem_1fr] gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0">
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="block truncate hover:underline"
+          >
+            {value}
+          </a>
+        ) : (
+          <span className="block truncate">{value}</span>
+        )}
+      </dd>
     </div>
   )
 }

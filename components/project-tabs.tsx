@@ -24,7 +24,7 @@ export function ProjectTabs({ slug }: { slug: string }) {
   const base = `/projects/${slug}`
 
   return (
-    <div className="flex flex-wrap gap-1 border-b border-border">
+    <nav className="flex gap-1 overflow-x-auto border-b border-border pb-2 lg:sticky lg:top-24 lg:block lg:space-y-1 lg:overflow-visible lg:border-b-0 lg:pb-0">
       {TABS.map((tab) => {
         const href = tab.segment ? `${base}/${tab.segment}` : base
         const active = tab.enabled && pathname === href
@@ -33,7 +33,7 @@ export function ProjectTabs({ slug }: { slug: string }) {
           return (
             <span
               key={tab.label}
-              className="cursor-not-allowed px-3 py-1.5 text-sm text-muted-foreground/50"
+              className="block cursor-not-allowed rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground/45"
               title="Coming in a later phase"
             >
               {tab.label}
@@ -46,16 +46,16 @@ export function ProjectTabs({ slug }: { slug: string }) {
             key={tab.label}
             href={href}
             className={cn(
-              "border-b-2 px-3 py-1.5 text-sm transition-colors",
+              "block rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
               active
-                ? "border-foreground font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-muted text-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             {tab.label}
           </Link>
         )
       })}
-    </div>
+    </nav>
   )
 }
