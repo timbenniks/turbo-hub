@@ -23,13 +23,22 @@ import { API_KEY_SCOPES, type ApiKeyScope } from "@/lib/enums"
 import { labelize } from "@/lib/labels"
 import type { ApiKeyPublic } from "@/lib/services/api-keys"
 
-export function ApiKeysManager({ keys }: { keys: ApiKeyPublic[] }) {
+export type ProjectOption = { id: string; name: string }
+
+export function ApiKeysManager({
+  keys,
+  projects,
+}: {
+  keys: ApiKeyPublic[]
+  projects: ProjectOption[]
+}) {
   const { busy, run } = useAsyncAction()
+  const projectName = new Map(projects.map((p) => [p.id, p.name]))
 
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <CreateKeyDialog />
+        <CreateKeyDialog projects={projects} />
       </div>
 
       {keys.length === 0 ? (
@@ -59,6 +68,18 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyPublic[] }) {
                 <p className="text-xs text-muted-foreground">
                   {key.scopes.map(labelize).join(", ")}
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  Projects:{" "}
+                  {key.allowedProjectIds?.length
+                    ? key.allowedProjectIds
+                        .map((id) => projectName.get(id) ?? id)
+                        .join(", ")
+                    : "all"}{" "}
+                  · Tools:{" "}
+                  {key.allowedToolNames?.length
+                    ? `${key.allowedToolNames.length} allowed`
+                    : "all"}
+                </p>
               </div>
               <Button
                 size="sm"
@@ -84,13 +105,15 @@ export function ApiKeysManager({ keys }: { keys: ApiKeyPublic[] }) {
   )
 }
 
-function CreateKeyDialog() {
+function CreateKeyDialog({ projects }: { projects: ProjectOption[] }) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState("")
   const [scopes, setScopes] = React.useState<ApiKeyScope[]>([
     ...API_KEY_SCOPES,
   ])
+  const [allowedProjectIds, setAllowedProjectIds] = React.useState<string[]>([])
+  const [toolNames, setToolNames] = React.useState("")
   const [expiresAt, setExpiresAt] = React.useState("")
   const [token, setToken] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
@@ -100,6 +123,8 @@ function CreateKeyDialog() {
     setOpen(false)
     setName("")
     setScopes([...API_KEY_SCOPES])
+    setAllowedProjectIds([])
+    setToolNames("")
     setExpiresAt("")
     setToken(null)
     setCopied(false)
@@ -108,12 +133,22 @@ function CreateKeyDialog() {
   async function create() {
     setBusy(true)
     try {
+      const allowedToolNames = toolNames
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
       const { token } = await apiSend<{ token: string }>(
         "/api/api-keys",
         "POST",
         {
           name,
           scopes,
+          allowedProjectIds: allowedProjectIds.length
+            ? allowedProjectIds
+            : undefined,
+          allowedToolNames: allowedToolNames.length
+            ? allowedToolNames
+            : undefined,
           expiresAt: expiresAt
             ? new Date(`${expiresAt}T23:59:59.999Z`).toISOString()
             : undefined,
@@ -126,6 +161,14 @@ function CreateKeyDialog() {
     } finally {
       setBusy(false)
     }
+  }
+
+  function toggleProject(id: string) {
+    setAllowedProjectIds((current) =>
+      current.includes(id)
+        ? current.filter((p) => p !== id)
+        : [...current, id]
+    )
   }
 
   async function copy() {
@@ -208,6 +251,38 @@ function CreateKeyDialog() {
                   </label>
                 ))}
               </div>
+            </Field>
+            <Field label="Projects (optional — empty = all)">
+              {projects.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No projects yet. The token will have access to all projects.
+                </p>
+              ) : (
+                <div className="grid max-h-40 gap-2 overflow-y-auto sm:grid-cols-2">
+                  {projects.map((project) => (
+                    <label
+                      key={project.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4"
+                        checked={allowedProjectIds.includes(project.id)}
+                        onChange={() => toggleProject(project.id)}
+                      />
+                      <span className="truncate">{project.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </Field>
+            <Field label="Tools (optional — empty = all)" htmlFor="key-tools">
+              <Input
+                id="key-tools"
+                value={toolNames}
+                onChange={(e) => setToolNames(e.target.value)}
+                placeholder="e.g. list_tasks, create_task, append_run_event"
+              />
             </Field>
             <Field label="Expires" htmlFor="key-expires">
               <Input

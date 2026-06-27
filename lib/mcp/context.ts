@@ -13,13 +13,17 @@ import { getUserProfile } from "@/lib/services/users"
 import { getPrimaryWorkspaceId } from "@/lib/services/workspaces"
 
 /** Auth context we stash on AuthInfo.extra and reconstruct inside tools. */
-type McpAuthExtra = {
+export type McpAuthExtra = {
   userId: string
   name: string | null | undefined
   email: string | null | undefined
   image: string | null | undefined
   workspaceId: string
   scopes: ApiKeyScope[]
+  /** Token id (for audit) + allowlists (null = unrestricted). */
+  tokenId: string
+  allowedProjectIds: string[] | null
+  allowedToolNames: string[] | null
 }
 
 /**
@@ -48,8 +52,16 @@ export async function verifyToken(
     image: user?.image,
     workspaceId,
     scopes: key.scopes,
+    tokenId: key.id,
+    allowedProjectIds: key.allowedProjectIds,
+    allowedToolNames: key.allowedToolNames,
   }
   return { token: bearer, clientId: key.userId, scopes: key.scopes, extra }
+}
+
+/** Read the full MCP auth extra (token id, allowlists, scopes) for the guard. */
+export function mcpAuth(extra: { authInfo?: AuthInfo }): McpAuthExtra | null {
+  return (extra.authInfo?.extra as McpAuthExtra | undefined) ?? null
 }
 
 export type ToolAuth = { ctx: AuthContext; workspaceId: string }

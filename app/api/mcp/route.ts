@@ -1,6 +1,7 @@
 import { createMcpHandler, experimental_withMcpAuth } from "mcp-handler"
 
 import { verifyToken } from "@/lib/mcp/context"
+import { guardServer } from "@/lib/mcp/guard"
 import { registerProjectTools } from "@/lib/mcp/tools/projects"
 import { registerPlanTools } from "@/lib/mcp/tools/plans"
 import { registerSpecTools } from "@/lib/mcp/tools/specs"
@@ -23,6 +24,9 @@ export const maxDuration = 60
 
 const handler = createMcpHandler(
   (server) => {
+    // Wrap registration so every tool runs through the central safety guard
+    // (allowlists, rate limit, idempotency, audit). Must run before registering.
+    guardServer(server)
     registerProjectTools(server)
     registerPlanTools(server)
     registerSpecTools(server)

@@ -20,6 +20,8 @@ const PUBLIC_COLUMNS = {
   name: apiKeys.name,
   prefix: apiKeys.prefix,
   scopes: apiKeys.scopes,
+  allowedProjectIds: apiKeys.allowedProjectIds,
+  allowedToolNames: apiKeys.allowedToolNames,
   expiresAt: apiKeys.expiresAt,
   lastUsedAt: apiKeys.lastUsedAt,
   createdAt: apiKeys.createdAt,
@@ -54,6 +56,8 @@ export async function createApiKey(
       hashedKey: sha256(token),
       prefix: token.slice(0, 12),
       scopes: input.scopes,
+      allowedProjectIds: input.allowedProjectIds ?? null,
+      allowedToolNames: input.allowedToolNames ?? null,
       expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
     })
     .returning(PUBLIC_COLUMNS)
@@ -81,12 +85,16 @@ export async function apiKeyForToken(token: string): Promise<{
   id: string
   userId: string
   scopes: ApiKeyScope[]
+  allowedProjectIds: string[] | null
+  allowedToolNames: string[] | null
 } | null> {
   const [row] = await db
     .select({
       id: apiKeys.id,
       userId: apiKeys.userId,
       scopes: apiKeys.scopes,
+      allowedProjectIds: apiKeys.allowedProjectIds,
+      allowedToolNames: apiKeys.allowedToolNames,
       lastUsedAt: apiKeys.lastUsedAt,
     })
     .from(apiKeys)
@@ -112,6 +120,8 @@ export async function apiKeyForToken(token: string): Promise<{
     id: row.id,
     userId: row.userId,
     scopes: normalizeScopes(row.scopes),
+    allowedProjectIds: row.allowedProjectIds,
+    allowedToolNames: row.allowedToolNames,
   }
 }
 

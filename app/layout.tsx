@@ -1,7 +1,7 @@
 import { Geist_Mono, Source_Sans_3 } from "next/font/google"
 
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider, themeScript } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
 const ss3 = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans" })
@@ -27,6 +27,10 @@ export default function RootLayout({
         ss3.variable
       )}
     >
+      <head>
+        {/* Set the theme class before paint to avoid a flash (server-only). */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>

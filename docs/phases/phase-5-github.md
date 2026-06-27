@@ -33,6 +33,37 @@ Still to build for this phase:
 - Webhook endpoint with signature verification.
 - Automatic PR/check syncing and task/run status updates from webhooks.
 
+## Start here (tomorrow)
+
+Concrete first steps, smallest shippable slices first:
+
+1. **Deps + env.** `npm i octokit @octokit/webhooks`. Add env:
+   `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`,
+   `GITHUB_APP_CLIENT_ID/SECRET`. Register a **GitHub App** (separate from the
+   Phase 0 OAuth login app) with permissions: repo metadata (read), pull
+   requests (read/write-for-comment), checks (read); subscribe to `pull_request`,
+   `check_run`, `check_suite`, `issue_comment`.
+2. **`lib/github/app.ts`** — Octokit App + per-installation client helpers
+   (`appOctokit()`, `installationOctokit(installationId)`). No DB logic here.
+3. **Webhook receiver** — `app/api/webhooks/github/route.ts` using
+   `@octokit/webhooks` `verify()` against `GITHUB_APP_WEBHOOK_SECRET` (raw body;
+   remember Next route handlers need `await req.text()` before parsing). Start by
+   handling **`pull_request`** only: upsert the PR via the existing
+   `pullRequests` service, then map state → `agent_run_events` + `activity_events`.
+4. **`lib/github/linking.ts`** — resolve PR → task/run in priority order: (1) PR
+   body metadata `<!-- hub_task_id: … -->` / `hub_run_id` / `hub_project_id`,
+   (2) branch convention `task/{slug}-{shortId}`, (3) existing manual link.
+   Reuse `lib/github/pull-request-url.ts` for owner/repo/number parsing.
+5. **Installation flow** — `app/api/integrations/github/*` callback that stores
+   `github_installation_id` + accessible repos on `repositories`; repo picker in
+   Settings → Integrations (secret storage already exists).
+6. **Checks + close/merge** — extend the webhook to `check_run`/`check_suite`
+   (timeline events) and `pull_request.closed`/merged (PR state + optional task
+   status update, default on for linked tasks).
+
+Ship 1–4 first: that alone gives automatic PR linking + state sync for any
+runner's output, which is the highest-leverage piece.
+
 ## Dependencies to add
 
 ```bash

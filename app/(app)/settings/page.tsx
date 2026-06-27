@@ -1,16 +1,26 @@
 import { ApiKeysManager } from "@/components/api-keys-manager"
 import { IntegrationsManager } from "@/components/integrations-manager"
+import { McpAudit } from "@/components/mcp-audit"
+import { ThemeSwitch } from "@/components/theme-switch"
 import { requireSessionUser } from "@/lib/auth/context"
+import { listAgentAuditEvents } from "@/lib/services/activity"
 import { listApiKeys } from "@/lib/services/api-keys"
 import { listIntegrations } from "@/lib/services/integrations"
+import { listProjects } from "@/lib/services/projects"
 import { getPrimaryWorkspaceId } from "@/lib/services/workspaces"
 
 export default async function SettingsPage() {
   const ctx = await requireSessionUser()
   const workspaceId = await getPrimaryWorkspaceId(ctx.userId)
-  const [keys, integrations] = await Promise.all([
+  const [keys, integrations, projects, auditEvents] = await Promise.all([
     listApiKeys(ctx.userId),
     workspaceId ? listIntegrations(workspaceId) : Promise.resolve([]),
+    workspaceId
+      ? listProjects(workspaceId, { includeArchived: true })
+      : Promise.resolve([]),
+    workspaceId
+      ? listAgentAuditEvents(workspaceId)
+      : Promise.resolve([]),
   ])
 
   return (
@@ -21,6 +31,17 @@ export default async function SettingsPage() {
           Access, credentials, and external agent configuration.
         </p>
       </div>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-sm font-medium">Appearance</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose a theme. Light is the default; System follows your operating
+            system.
+          </p>
+        </div>
+        <ThemeSwitch />
+      </section>
 
       <div className="grid gap-8 xl:grid-cols-2">
         <section className="space-y-4">
@@ -39,7 +60,10 @@ export default async function SettingsPage() {
               ). A token acts as you.
             </p>
           </div>
-          <ApiKeysManager keys={keys} />
+          <ApiKeysManager
+            keys={keys}
+            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          />
         </section>
 
         <section className="space-y-4">
@@ -53,6 +77,17 @@ export default async function SettingsPage() {
           <IntegrationsManager integrations={integrations} />
         </section>
       </div>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-sm font-medium">Agent audit log</h2>
+          <p className="text-sm text-muted-foreground">
+            Every write an agent makes through the MCP server is recorded here —
+            which tool ran, under which token, and when.
+          </p>
+        </div>
+        <McpAudit events={auditEvents} />
+      </section>
     </div>
   )
 }

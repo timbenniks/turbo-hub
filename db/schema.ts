@@ -155,6 +155,10 @@ export const apiKeys = pgTable(
       .$type<ApiKeyScope[]>()
       .default(defaultApiKeyScopes)
       .notNull(),
+    // MCP allowlists (spec §12.21). null / empty = no restriction (all
+    // projects / all tools). Enforced centrally in the MCP tool guard.
+    allowedProjectIds: jsonb("allowed_project_ids").$type<string[]>(),
+    allowedToolNames: jsonb("allowed_tool_names").$type<string[]>(),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     createdAt: createdAt(),

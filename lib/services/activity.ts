@@ -72,3 +72,25 @@ export async function listTaskActivity(
     .orderBy(desc(activityEvents.createdAt))
     .limit(limit)
 }
+
+/**
+ * Agent-attributed audit trail: every MCP write is recorded with
+ * `actorType = "agent"` by the tool guard (spec §27.3). Powers the Settings
+ * audit view.
+ */
+export async function listAgentAuditEvents(
+  workspaceId: string,
+  limit = 50
+): Promise<ActivityEvent[]> {
+  return db
+    .select()
+    .from(activityEvents)
+    .where(
+      and(
+        eq(activityEvents.workspaceId, workspaceId),
+        eq(activityEvents.actorType, "agent")
+      )
+    )
+    .orderBy(desc(activityEvents.createdAt))
+    .limit(limit)
+}

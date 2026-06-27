@@ -12,13 +12,35 @@ decisions, learnings, and search patterns; with a write-scoped token it can clai
 a task, create a run, append events, attach a PR, and add a learning — every
 write audited and scope-checked.
 
-> **Status:** a simplified Phase 6 shipped early. `/api/mcp` exists and wraps the
-> domain services for projects, planning, context/memory, runs, PRs, search, and
-> agent profiles. `thub_` API keys are hashed, revocable, expirable, and carry
-> coarse `api:*` / `mcp:*` scopes. MCP write tools require `mcp:write`. Still
-> remaining from the full spec: per-project allowlists, per-tool allowlists,
-> rate limits, idempotency keys, dedicated audit-log views, and separate MCP
-> token records.
+> **Status: COMPLETE (2026-06-27).** `/api/mcp` wraps the domain services for
+> projects, planning, context/memory, runs, PRs, search, agent profiles,
+> repositories, and integrations. `thub_` tokens are hashed, revocable,
+> expirable, and carry coarse `api:*` / `mcp:*` scopes. Hardening shipped:
+>
+> - **Per-project + per-tool allowlists** on each token (`api_keys.allowed_project_ids`,
+>   `allowed_tool_names`; null/empty = unrestricted), enforced centrally.
+> - **Rate limiting** (per-token, per-minute) and **idempotency** (identical
+>   repeated writes coalesced within a short TTL) in the central guard.
+> - **Agent audit log**: every MCP write records an `activity_events` row with
+>   `actor_type = "agent"`, the token id, tool name, and safe arg keys; surfaced
+>   in Settings → Agent audit log.
+>
+> Design choices (deviations from the spec's literal shape, kept pragmatic):
+>
+> - **No separate `mcp_tokens` table** — the fields were folded into `api_keys`
+>   to avoid a parallel token store. Revisit only if API and MCP tokens need to
+>   diverge.
+> - **Read-only mode is scope-based** (`mcp:read` without `mcp:write`) rather than
+>   a dedicated `read_only` column.
+> - **Audit reuses `activity_events`** (actor_type=agent) rather than a dedicated
+>   `audit_log` table.
+> - The rate limiter / idempotency cache are **in-memory per serverless instance**
+>   — a best-effort safety net, not a distributed quota. Move to Postgres/Redis if
+>   strict cross-instance limits are needed.
+>
+> Enforcement lives in `lib/mcp/guard.ts` (wraps `registerTool` once in
+> `app/api/mcp/route.ts`), so no per-tool changes are required and new tools are
+> covered automatically.
 
 ## Prerequisites
 
@@ -29,11 +51,12 @@ write audited and scope-checked.
 
 ### 1. Schema additions (spec §12.20, §12.21, §25.2)
 
-- `api_keys` (token_hash, scopes, expires_at, last_used_at — §12.20).
-- `mcp_tokens` (token_hash, allowed_project_ids, allowed_tool_names, read_only,
-  expires_at, last_used_at, revoked_at — §12.21).
-- `audit_log` (or reuse `activity_events` with actor_type=agent) capturing actor,
-  action, resource, timestamp, metadata, token id (spec §27.3).
+- [x] `api_keys` (token_hash, scopes, expires_at, last_used_at — §12.20).
+- [x] MCP allowlists (§12.21): `api_keys.allowed_project_ids` +
+      `allowed_tool_names` (folded into `api_keys` instead of a separate
+      `mcp_tokens` table; read-only is scope-based).
+- [x] Audit via `activity_events` with `actor_type=agent` + token id in metadata
+      (spec §27.3) — no separate `audit_log` table.
 
 ### 2. Token services (`lib/services/tokens.ts`)
 
@@ -79,9 +102,11 @@ access → project access (against `allowed_project_ids`) → input validation (
 
 ### 5. UI
 
-- **Settings → Tokens** (spec §26.4): create/list/revoke API keys and MCP tokens;
-  per-token scopes, allowed projects, allowed tools, read-only flag, expiry.
-- **Audit view**: list agent writes (actor, action, resource, token, time).
+- [x] **Settings → API keys** (spec §26.4): create/list/revoke tokens with
+      per-token scopes, allowed projects (checkboxes), allowed tools (names),
+      and expiry. Read-only = grant `mcp:read` without `mcp:write`.
+- [x] **Audit view**: Settings → Agent audit log lists agent writes (tool,
+      token, time) from `activity_events`.
 
 ## Acceptance criteria (spec §28.8)
 
@@ -90,12 +115,13 @@ access → project access (against `allowed_project_ids`) → input validation (
       `mcp:write`.
 - [x] Scoped write tools work under a write token.
 - [x] MCP writes create activity events through the shared services.
-- [ ] Project/tool allowlists are enforced.
+- [x] Project/tool allowlists are enforced (central guard; null/empty = all).
 - [x] Tokens are hashed, expirable, revocable, and last-used updates are
       throttled.
-- [ ] Idempotency keys honored on repeated writes; rate limits applied.
-- [ ] MCP tools call the same services as the API (no duplicated DB logic).
-- [ ] typecheck + lint clean; migrations apply.
+- [x] Idempotency honored on repeated identical writes; rate limits applied
+      (in-memory, per instance).
+- [x] MCP tools call the same services as the API (no duplicated DB logic).
+- [x] typecheck + lint clean; migration `0010_famous_tag.sql` applies.
 
 ## Notes
 

@@ -6,10 +6,14 @@
 > written by a local model through the **MCP tools**, or pasted in via the
 > external-agent flow. Context packs assemble deterministically. Anywhere the
 > phase docs below say "generate" / "AI-assisted", read it through that lens.
-> Also note the build order diverged from the list below: **Phase 6 (MCP server +
-> `thub_` API tokens) shipped early**, **Phase 2 is largely built**, and
-> **Phase 3 is built in manual-runner form**. Later phases still harden and
-> automate the runner/PR story.
+> Also note the build order diverged from the list below: **Phases 0–3 are built
+> (Phase 3 in manual-runner form)**, and **Phase 6 (MCP server + `thub_` tokens)
+> shipped early and is now fully hardened** (per-project/tool allowlists, rate
+> limiting, idempotency, agent audit log — see [phase 6](./phase-6-mcp.md)).
+> A UI/UX overhaul + light-default theme also shipped (not a numbered phase).
+> **Next up: the two real runners — [Phase 5 GitHub](./phase-5-github.md) and
+> [Phase 4 Cursor cloud](./phase-4-cursor-dispatch.md).** Phase 7 (CLI + local
+> Claude runner) comes after those.
 
 This directory slices [`docs/spec.md`](../spec.md) into ordered, shippable phases.
 Each phase doc is self-contained: goal, prerequisites, task checklist, files to
@@ -46,7 +50,14 @@ Already in the repo (`AGENTS.md` describes the project conventions):
   integration secret storage, and repo metadata in context packs.
 - MCP adapter: `/api/mcp` exposes tools over the same domain services used by
   the UI/API. `thub_` API keys are hashed, revocable, expirable, and scoped for
-  API/MCP read/write. MCP mutating tools require `mcp:write`.
+  API/MCP read/write. MCP mutating tools require `mcp:write`. **Hardened
+  (Phase 6 complete):** per-token project + tool allowlists, per-token rate
+  limiting, idempotent repeated writes, and an agent audit log — all enforced
+  centrally in `lib/mcp/guard.ts`, surfaced in Settings.
+- UI/UX layer: calm monochrome design with semantic `StatusChip`s, grouped
+  project sidebar, action-oriented dashboard, workflow rail, readable plan/spec
+  pages, helpful empty states, and a light-default theme with a switch in
+  Settings.
 
 Current gate: `npm run typecheck`, `npm run lint`, `npx drizzle-kit check`, and
 `npm run build` must pass before moving into the next phase.
@@ -61,9 +72,6 @@ Still not present or intentionally incomplete:
   or automatic PR sync yet.
 - Integration secrets can be stored encrypted with `INTEGRATION_SECRET_KEY`, but
   the Cursor and GitHub adapters that consume those secrets are not implemented.
-- MCP/API token hardening is simplified compared with the full spec: there are
-  coarse read/write scopes and expiry, but no per-project allowlist, per-tool
-  allowlist, rate limits, idempotency keys, or dedicated audit-log table yet.
 - Learning extraction is manual/human-approved. The hub stores learnings; it
   does not call an in-app model to draft them.
 

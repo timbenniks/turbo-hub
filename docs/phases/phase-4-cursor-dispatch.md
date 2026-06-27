@@ -25,11 +25,48 @@ Built as foundation:
 - Projects can link a GitHub repository, and context packs include repo URL +
   default branch.
 
+Built as foundation (also confirm before starting):
+
+- **Runner interface + registry already exist**: `lib/runners/types.ts`
+  (`Runner` with `createRun` / `getRunStatus` / `cancelRun`),
+  `lib/runners/registry.ts`, and `lib/runners/manual.ts`. `lib/services/runs.ts`
+  already calls `runner.createRun()` and stores `runnerType` +
+  `external_runner_id`. So the Cursor adapter slots into an existing seam.
+- `lib/crypto.ts` (AES-256-GCM) + `lib/services/integrations.ts` store the Cursor
+  API key encrypted at rest; `agent_profiles` supports `cursor_cloud`.
+
 Still to build for this phase:
 
 - Cursor API client/runner adapter.
 - Dispatch endpoint and task UI that require an approved context pack.
 - Polling/webhook normalization into run events and PR attachment.
+
+## Start here (tomorrow)
+
+1. **`lib/runners/cursor.ts`** implementing the `Runner` interface, registered in
+   `lib/runners/registry.ts`. `createRun` reads the Cursor key via
+   `lib/services/integrations.ts` + `lib/crypto.ts` (decrypt server-side only),
+   builds the prompt from the **approved context pack** body (already assembled
+   deterministically in Phase 2), calls the Cursor API, and returns the external
+   run id + initial status.
+2. **Dispatch endpoint** — `POST /api/tasks/[taskId]/dispatch` with
+   `{ runner: "cursor", contextPackId }`. Enforce the §20.3 order: pack must be
+   **approved**, human-confirmed, then create the hub run and hand off to the
+   runner. Reuse `createRun` in `lib/services/runs.ts`.
+3. **Status normalization** — `getRunStatus` maps Cursor states → hub
+   `agent_run_events` (status, branch, PR url, summary, errors). Drive it from a
+   **Vercel cron** (`vercel.json`) hitting active Cursor runs, or a webhook if
+   available (`/api/webhooks/cursor`, verify signature).
+4. **UI** — task dispatch panel: runner picker includes Cursor when configured,
+   shows the pack to be sent, confirm dialog; run page shows external id + live
+   status (reuses the Phase 3 timeline).
+5. **PR attach** — once Phase 5 is in, PRs auto-link via branch/metadata; until
+   then the manual PR-link flow (Phase 3) covers it. Have the Cursor adapter emit
+   `task/{slug}-{shortId}` branches + hub metadata in the PR body so Phase 5
+   linking is automatic.
+
+Keep **all** Cursor-specific logic inside `lib/runners/cursor.ts` — the core
+dispatch service calls `runner.createRun`, never the Cursor API directly.
 
 ## Tasks
 
