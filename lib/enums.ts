@@ -87,6 +87,12 @@ export const RUNNER_PREFERENCES = [
   "custom",
 ] as const
 
+export const REPOSITORY_PROVIDERS = ["github"] as const
+
+export const INTEGRATION_PROVIDERS = ["github", "cursor"] as const
+
+export const INTEGRATION_STATUSES = ["active", "disabled", "error"] as const
+
 export const TASK_DEPENDENCY_TYPES = [
   "blocks",
   "related",
@@ -185,6 +191,9 @@ export type SpecStatus = (typeof SPEC_STATUSES)[number]
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 export type TaskAssigneeType = (typeof TASK_ASSIGNEE_TYPES)[number]
 export type RunnerPreference = (typeof RUNNER_PREFERENCES)[number]
+export type RepositoryProvider = (typeof REPOSITORY_PROVIDERS)[number]
+export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number]
+export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number]
 export type TaskDependencyType = (typeof TASK_DEPENDENCY_TYPES)[number]
 export type DecisionType = (typeof DECISION_TYPES)[number]
 export type DecisionStatus = (typeof DECISION_STATUSES)[number]

@@ -18,6 +18,13 @@
 > `ai`/`@ai-sdk/*` dependency in the app. The only LLM in the picture is the
 > Phase 7 **local runner**, which is itself the local model executing tasks — not
 > the hub calling out to one.
+>
+> **Implementation status (2026-06-27):** the hub has manual project planning,
+> context/memory, manual agent runs, MCP tools, repository records,
+> project-to-repository linking, repository-aware manual PR tracking, and
+> encrypted integration secret storage. Cursor dispatch, GitHub App
+> installation/webhooks, check syncing, and local CLI runner automation remain
+> future work.
 
 ## 1. Working title
 
@@ -1540,11 +1547,11 @@ Runner interface concept:
 
 ```ts
 type Runner = {
-  type: string;
-  createRun(input: CreateRunInput): Promise<CreateRunResult>;
-  getRunStatus(externalId: string): Promise<RunStatusResult>;
-  cancelRun(externalId: string): Promise<void>;
-};
+  type: string
+  createRun(input: CreateRunInput): Promise<CreateRunResult>
+  getRunStatus(externalId: string): Promise<RunStatusResult>
+  cancelRun(externalId: string): Promise<void>
+}
 ```
 
 ### 15.5 Agent permissions

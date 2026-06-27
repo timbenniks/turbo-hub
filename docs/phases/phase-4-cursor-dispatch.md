@@ -16,20 +16,36 @@ status flows queued → running → completed → PR attached → learning extra
 - A repo associated with the project (manual repo metadata is fine; full GitHub
   App is Phase 5).
 
+## Current repo status
+
+Built as foundation:
+
+- `integrations` table + settings UI store provider secrets encrypted at rest.
+- `INTEGRATION_SECRET_KEY` is required when saving a secret.
+- Projects can link a GitHub repository, and context packs include repo URL +
+  default branch.
+
+Still to build for this phase:
+
+- Cursor API client/runner adapter.
+- Dispatch endpoint and task UI that require an approved context pack.
+- Polling/webhook normalization into run events and PR attachment.
+
 ## Tasks
 
 ### 1. Schema additions
 
-- `integrations` table (spec §25.2): provider (cursor/github/...), workspace_id,
-  config, **encrypted secrets** (spec §26.3 — encrypt the Cursor API key at rest;
-  never expose to client).
+- [x] `integrations` table (spec §25.2): provider (cursor/github/...),
+      workspace_id, config, **encrypted secrets** (spec §26.3 — encrypt the
+      Cursor API key at rest; never expose to client).
 - Reuse `agent_profiles` (type `cursor_cloud`) and `agent_runs.external_runner_id`.
 
 ### 2. Secrets handling (`lib/crypto.ts`)
 
-- Symmetric encryption helper (key from env, e.g. `INTEGRATION_SECRET_KEY`) for
-  integration secrets at rest. Decrypt only server-side at dispatch time. Redact
-  secrets from any stored logs/events (spec §26.3).
+- [x] Symmetric encryption helper (key from env, e.g.
+      `INTEGRATION_SECRET_KEY`) for integration secrets at rest.
+- [ ] Decrypt only server-side at dispatch time once the Cursor runner exists.
+- [ ] Redact secrets from runner logs/events.
 
 ### 3. Cursor runner (`lib/runners/cursor.ts`)
 
@@ -50,9 +66,9 @@ Implement the `Runner` interface (spec §15.4, §20):
 Spec §20.3 ordered flow, enforced server-side:
 
 1. Assemble context pack → 2. user reviews/approves → 3. create hub run →
-4. send to Cursor → 5. store external id → 6. mark queued/running →
-7. poll/receive updates → 8. attach PR → 9. update task status →
-10. extract learning.
+2. send to Cursor → 5. store external id → 6. mark queued/running →
+3. poll/receive updates → 8. attach PR → 9. update task status →
+4. extract learning.
 
 ```
 POST   /api/tasks/[taskId]/dispatch        # body: { runner: "cursor", contextPackId }

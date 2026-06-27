@@ -2,7 +2,7 @@ import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
 import { labelize } from "@/lib/labels"
-import { listPullRequests } from "@/lib/services/pullRequests"
+import { listPullRequestsWithRepository } from "@/lib/services/pullRequests"
 import { timeAsync } from "@/lib/timing"
 import { loadProject } from "../project-context"
 
@@ -14,7 +14,10 @@ export default async function ProjectPullRequestsPage({
   return timeAsync("render.project.pull-requests", async () => {
     const { slug } = await params
     const { workspaceId, project } = await loadProject(slug)
-    const pullRequests = await listPullRequests(workspaceId, project.id)
+    const pullRequests = await listPullRequestsWithRepository(
+      workspaceId,
+      project.id
+    )
 
     return (
       <div className="space-y-4">
@@ -40,8 +43,10 @@ export default async function ProjectPullRequestsPage({
                       {pullRequest.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {pullRequest.provider}
-                      {pullRequest.number ? ` #${pullRequest.number}` : ""} ·{" "}
+                      {pullRequest.repository?.fullName ?? pullRequest.provider}
+                      {pullRequest.number
+                        ? ` #${pullRequest.number}`
+                        : ""} ·{" "}
                       {new Date(pullRequest.updatedAt).toLocaleString()}
                     </p>
                   </div>

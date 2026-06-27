@@ -1,10 +1,17 @@
 import { ApiKeysManager } from "@/components/api-keys-manager"
+import { IntegrationsManager } from "@/components/integrations-manager"
 import { requireSessionUser } from "@/lib/auth/context"
 import { listApiKeys } from "@/lib/services/api-keys"
+import { listIntegrations } from "@/lib/services/integrations"
+import { getPrimaryWorkspaceId } from "@/lib/services/workspaces"
 
 export default async function SettingsPage() {
   const ctx = await requireSessionUser()
-  const keys = await listApiKeys(ctx.userId)
+  const workspaceId = await getPrimaryWorkspaceId(ctx.userId)
+  const [keys, integrations] = await Promise.all([
+    listApiKeys(ctx.userId),
+    workspaceId ? listIntegrations(workspaceId) : Promise.resolve([]),
+  ])
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -27,6 +34,17 @@ export default async function SettingsPage() {
           </p>
         </div>
         <ApiKeysManager keys={keys} />
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-sm font-medium">Integrations</h2>
+          <p className="text-sm text-muted-foreground">
+            Store provider credentials for repository and runner adapters.
+            Secret values are encrypted at rest and never shown again.
+          </p>
+        </div>
+        <IntegrationsManager integrations={integrations} />
       </section>
     </div>
   )

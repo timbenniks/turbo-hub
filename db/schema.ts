@@ -25,6 +25,8 @@ import {
   CONTEXT_PACK_STATUSES,
   DECISION_STATUSES,
   DECISION_TYPES,
+  INTEGRATION_PROVIDERS,
+  INTEGRATION_STATUSES,
   LEARNING_TYPES,
   PLAN_STATUSES,
   PULL_REQUEST_STATES,
@@ -32,6 +34,7 @@ import {
   PROJECT_PRIORITIES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
+  REPOSITORY_PROVIDERS,
   RUNNER_PREFERENCES,
   SPEC_STATUSES,
   TASK_ASSIGNEE_TYPES,
@@ -87,15 +90,35 @@ export const contextPackStatus = pgEnum(
   "context_pack_status",
   CONTEXT_PACK_STATUSES
 )
-export const agentProfileType = pgEnum("agent_profile_type", AGENT_PROFILE_TYPES)
+export const agentProfileType = pgEnum(
+  "agent_profile_type",
+  AGENT_PROFILE_TYPES
+)
 export const agentRunStatus = pgEnum("agent_run_status", AGENT_RUN_STATUSES)
 export const agentRunEventType = pgEnum(
   "agent_run_event_type",
   AGENT_RUN_EVENT_TYPES
 )
-export const pullRequestState = pgEnum("pull_request_state", PULL_REQUEST_STATES)
+export const pullRequestState = pgEnum(
+  "pull_request_state",
+  PULL_REQUEST_STATES
+)
+export const repositoryProvider = pgEnum(
+  "repository_provider",
+  REPOSITORY_PROVIDERS
+)
+export const integrationProvider = pgEnum(
+  "integration_provider",
+  INTEGRATION_PROVIDERS
+)
+export const integrationStatus = pgEnum(
+  "integration_status",
+  INTEGRATION_STATUSES
+)
 
-const defaultApiKeyScopes = sql.raw(`'${JSON.stringify(API_KEY_SCOPES)}'::jsonb`)
+const defaultApiKeyScopes = sql.raw(
+  `'${JSON.stringify(API_KEY_SCOPES)}'::jsonb`
+)
 
 // ---------------------------------------------------------------------------
 // Auth.js tables (Drizzle adapter shape)
@@ -219,6 +242,74 @@ export const workspaceMembers = pgTable(
 )
 
 // ---------------------------------------------------------------------------
+// Integrations + repositories
+// ---------------------------------------------------------------------------
+
+export const integrations = pgTable(
+  "integrations",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: integrationProvider("provider").notNull(),
+    name: text("name").notNull(),
+    status: integrationStatus("status").notNull().default("active"),
+    config: jsonb("config")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    encryptedSecret: text("encrypted_secret"),
+    secretPreview: text("secret_preview"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (i) => [
+    index("integrations_workspace_idx").on(i.workspaceId),
+    index("integrations_workspace_provider_idx").on(i.workspaceId, i.provider),
+    uniqueIndex("integrations_workspace_provider_name_idx").on(
+      i.workspaceId,
+      i.provider,
+      i.name
+    ),
+  ]
+)
+
+export const repositories = pgTable(
+  "repositories",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    provider: repositoryProvider("provider").notNull().default("github"),
+    owner: text("owner").notNull(),
+    name: text("name").notNull(),
+    fullName: text("full_name").notNull(),
+    url: text("url").notNull(),
+    defaultBranch: text("default_branch").notNull().default("main"),
+    githubInstallationId: text("github_installation_id"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (r) => [
+    index("repositories_workspace_idx").on(r.workspaceId),
+    index("repositories_workspace_provider_idx").on(r.workspaceId, r.provider),
+    uniqueIndex("repositories_workspace_provider_full_name_idx").on(
+      r.workspaceId,
+      r.provider,
+      r.fullName
+    ),
+  ]
+)
+
+// ---------------------------------------------------------------------------
 // Projects + tags
 // ---------------------------------------------------------------------------
 
@@ -240,8 +331,10 @@ export const projects = pgTable(
     goal: text("goal"),
     constraints: text("constraints"),
     notes: text("notes"),
-    // FK targets added in later phases (repositories, plans).
-    repositoryId: text("repository_id"),
+    // Plans are linked below; repositories are optional per project.
+    repositoryId: text("repository_id").references(() => repositories.id, {
+      onDelete: "set null",
+    }),
     currentPlanId: text("current_plan_id"),
     createdBy: text("created_by").references(() => users.id, {
       onDelete: "set null",
@@ -526,7 +619,9 @@ export const decisions = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     // Optional links to the task/run that produced the decision.
-    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    taskId: text("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
     // FK target (agent_runs) added in Phase 3.
     runId: text("run_id"),
     title: text("title").notNull(),
@@ -563,7 +658,9 @@ export const learnings = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    taskId: text("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
     // FK target (agent_runs) added in Phase 3.
     runId: text("run_id"),
     title: text("title").notNull(),
@@ -719,7 +816,9 @@ export const agentRuns = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    taskId: text("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
     profileId: text("profile_id").references(() => agentProfiles.id, {
       onDelete: "set null",
     }),
@@ -789,12 +888,15 @@ export const pullRequests = pgTable(
     projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    taskId: text("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
     runId: text("run_id").references(() => agentRuns.id, {
       onDelete: "set null",
     }),
-    // FK target (repositories) added in Phase 5.
-    repositoryId: text("repository_id"),
+    repositoryId: text("repository_id").references(() => repositories.id, {
+      onDelete: "set null",
+    }),
     provider: text("provider").notNull().default("github"),
     externalId: text("external_id"),
     number: integer("number"),
@@ -816,11 +918,6 @@ export const pullRequests = pgTable(
     index("pull_requests_project_idx").on(pr.projectId),
     index("pull_requests_task_idx").on(pr.taskId),
     index("pull_requests_run_idx").on(pr.runId),
+    index("pull_requests_repository_idx").on(pr.repositoryId),
   ]
 )
-
-// ---------------------------------------------------------------------------
-// TODO (later phases — extend this file, keep one coherent schema):
-//   Phase 4: integrations
-//   Phase 5: repositories
-// ---------------------------------------------------------------------------

@@ -71,6 +71,8 @@ Common resources:
 
 - `turbo-hub://help`
 - `turbo-hub://workspace/overview`
+- `turbo-hub://workspace/repositories`
+- `turbo-hub://workspace/integrations`
 - `turbo-hub://patterns`
 - `turbo-hub://project/{project}/overview`
 - `turbo-hub://project/{project}/plan`
@@ -86,6 +88,22 @@ Common resources:
 
 `{project}` accepts a project id, slug, or exact project name.
 
+## Tools
+
+Repository and integration tools:
+
+- `list_repositories`, `get_repository`, `get_project_repository`
+- `upsert_repository`, `link_project_repository`
+- `list_integrations`, `upsert_integration`, `delete_integration`
+
+PR tools:
+
+- `list_pull_requests`, `get_pull_request`, `link_pull_request`,
+  `update_pull_request`
+
+Secret values passed to `upsert_integration` are encrypted at rest and are never
+returned by resources or read tools. Mutating tools require `mcp:write`.
+
 ## Prompts
 
 - `work_on_task` guides an agent through task context, run tracking, PR linking,
@@ -96,7 +114,8 @@ Common resources:
 ## Expected Agent Flow
 
 1. Read `turbo-hub://workspace/overview` or call `list_projects`.
-2. Read project resources for plan, specs, tasks, memory, runs, and PRs.
+2. Read project resources for plan, specs, tasks, memory, runs, PRs, and linked
+   repository state.
 3. Read `turbo-hub://task/{taskId}/execution-brief`.
 4. Call `assemble_context_pack` if needed, then approve/freeze the pack.
 5. Call `create_run` and `start_run`.

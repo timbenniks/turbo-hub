@@ -15,6 +15,24 @@ run → PR state (open/merged/closed) and checks reflect in the hub.
 - Phase 3 (`pull_requests`, runs) and ideally Phase 4 done.
 - A registered GitHub App (separate from the Phase 0 OAuth login app).
 
+## Current repo status
+
+Built as foundation:
+
+- `repositories` table with workspace/provider/full-name uniqueness.
+- `projects.repository_id` and `pull_requests.repository_id` now reference
+  repositories.
+- Project overview can link a GitHub repository by URL.
+- Manual PR linking parses GitHub PR URLs, stores repo + PR number metadata, and
+  auto-links the project to the repo if it was not already linked.
+- Project PR tab displays repository-aware PR rows.
+
+Still to build for this phase:
+
+- GitHub App installation/callback flow and repository discovery.
+- Webhook endpoint with signature verification.
+- Automatic PR/check syncing and task/run status updates from webhooks.
+
 ## Dependencies to add
 
 ```bash
@@ -25,10 +43,10 @@ npm i octokit @octokit/webhooks
 
 ### 1. Schema additions (spec §12.14, §25.2)
 
-- `repositories` (provider, owner, name, full_name, url, default_branch,
-  github_installation_id, workspace_id).
-- Extend `projects.repository_id`; `pull_requests` already exists (Phase 3) —
-  ensure provider/external_id/installation linkage.
+- [x] `repositories` (provider, owner, name, full_name, url, default_branch,
+      github_installation_id, workspace_id).
+- [x] Extend `projects.repository_id` and `pull_requests.repository_id`.
+- [ ] Persist GitHub App installation metadata from a real installation flow.
 
 ### 2. GitHub App (`lib/github/`)
 
@@ -75,9 +93,11 @@ GET  /api/integrations   POST /api/integrations/github   DELETE /api/integration
 
 ### 5. UI
 
-- **Integrations settings**: install/connect GitHub App, pick repositories.
-- **Project settings**: link a repository to the project.
-- **PR tab / cards** (spec §23.5 run+task PR cards): live PR state, checks,
+- **Integrations settings**: secret storage exists; install/connect GitHub App
+  and repo picker remain.
+- [x] **Project overview**: link a repository to the project.
+- **PR tab / cards** (spec §23.5 run+task PR cards): repository-aware manual PR
+  rows exist; live PR state, checks,
   branch, base — driven by webhooks.
 
 ## Acceptance criteria (spec §19, §28.6)

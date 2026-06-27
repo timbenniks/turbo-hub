@@ -9,7 +9,14 @@ import { listPatterns } from "@/lib/services/patterns"
 import { getActivePlan, listPlans } from "@/lib/services/plans"
 import { getProjectById, listProjects } from "@/lib/services/projects"
 import { listPullRequests } from "@/lib/services/pullRequests"
-import { getRun, listProjectRuns, listRunEvents, listTaskRuns } from "@/lib/services/runs"
+import { listIntegrations } from "@/lib/services/integrations"
+import { listRepositories } from "@/lib/services/repositories"
+import {
+  getRun,
+  listProjectRuns,
+  listRunEvents,
+  listTaskRuns,
+} from "@/lib/services/runs"
 import { listSpecs, specBody } from "@/lib/services/specs"
 import { getTask, listDependencies, listTasks } from "@/lib/services/tasks"
 import { labelize } from "@/lib/labels"
@@ -52,7 +59,7 @@ export function registerMcpResources(server: McpServer) {
         [
           "# Turbo Hub MCP",
           "",
-          "Use this server to read and write project planning state, context packs, manual agent runs, pull requests, decisions, learnings, and reusable patterns.",
+          "Use this server to read and write project planning state, context packs, manual agent runs, repositories, pull requests, decisions, learnings, integrations, and reusable patterns.",
           "",
           "Authentication: pass a `thub_` token as `Authorization: Bearer <token>`. The token needs `mcp:read` for resources/read tools and `mcp:write` for mutating tools.",
           "",
@@ -71,16 +78,55 @@ export function registerMcpResources(server: McpServer) {
     "turbo-hub://workspace/overview",
     {
       title: "Workspace overview",
-      description: "Projects and reusable patterns for the authenticated workspace.",
+      description:
+        "Projects, repositories, integrations, and reusable patterns for the authenticated workspace.",
       mimeType: "application/json",
     },
     async (uri, extra) => {
       const { workspaceId } = requireAuth(extra)
-      const [projects, patterns] = await Promise.all([
-        listProjects(workspaceId, { includeArchived: true }),
-        listPatterns(workspaceId),
-      ])
-      return jsonResource(uri, { workspaceId, projects, patterns })
+      const [projects, repositories, integrations, patterns] =
+        await Promise.all([
+          listProjects(workspaceId, { includeArchived: true }),
+          listRepositories(workspaceId),
+          listIntegrations(workspaceId),
+          listPatterns(workspaceId),
+        ])
+      return jsonResource(uri, {
+        workspaceId,
+        projects,
+        repositories,
+        integrations,
+        patterns,
+      })
+    }
+  )
+
+  server.registerResource(
+    "workspace_repositories",
+    "turbo-hub://workspace/repositories",
+    {
+      title: "Workspace repositories",
+      description: "Repositories known to the authenticated workspace.",
+      mimeType: "application/json",
+    },
+    async (uri, extra) => {
+      const { workspaceId } = requireAuth(extra)
+      return jsonResource(uri, await listRepositories(workspaceId))
+    }
+  )
+
+  server.registerResource(
+    "workspace_integrations",
+    "turbo-hub://workspace/integrations",
+    {
+      title: "Workspace integrations",
+      description:
+        "Configured integrations for the authenticated workspace. Secret values are never returned.",
+      mimeType: "application/json",
+    },
+    async (uri, extra) => {
+      const { workspaceId } = requireAuth(extra)
+      return jsonResource(uri, await listIntegrations(workspaceId))
     }
   )
 
@@ -110,17 +156,25 @@ export function registerMcpResources(server: McpServer) {
     async (uri, variables, extra) => {
       const { workspaceId } = requireAuth(extra)
       const id = await projectId(workspaceId, single(variables.project))
-      const [project, activePlan, specs, tasks, decisions, learnings, runs, pullRequests] =
-        await Promise.all([
-          getProjectById(workspaceId, id),
-          getActivePlan(workspaceId, id),
-          listSpecs(workspaceId, id),
-          listTasks(workspaceId, id),
-          listDecisions(workspaceId, id),
-          listLearnings(workspaceId, id),
-          listProjectRuns(workspaceId, id),
-          listPullRequests(workspaceId, id),
-        ])
+      const [
+        project,
+        activePlan,
+        specs,
+        tasks,
+        decisions,
+        learnings,
+        runs,
+        pullRequests,
+      ] = await Promise.all([
+        getProjectById(workspaceId, id),
+        getActivePlan(workspaceId, id),
+        listSpecs(workspaceId, id),
+        listTasks(workspaceId, id),
+        listDecisions(workspaceId, id),
+        listLearnings(workspaceId, id),
+        listProjectRuns(workspaceId, id),
+        listPullRequests(workspaceId, id),
+      ])
       return jsonResource(uri, {
         project,
         activePlan,
@@ -138,7 +192,9 @@ export function registerMcpResources(server: McpServer) {
 
   server.registerResource(
     "project_plan",
-    new ResourceTemplate("turbo-hub://project/{project}/plan", { list: undefined }),
+    new ResourceTemplate("turbo-hub://project/{project}/plan", {
+      list: undefined,
+    }),
     {
       title: "Project plan",
       description: "Active plan and plan history for a project.",
@@ -157,7 +213,9 @@ export function registerMcpResources(server: McpServer) {
 
   server.registerResource(
     "project_specs",
-    new ResourceTemplate("turbo-hub://project/{project}/specs", { list: undefined }),
+    new ResourceTemplate("turbo-hub://project/{project}/specs", {
+      list: undefined,
+    }),
     {
       title: "Project specs",
       description: "Specs for a project, including assembled Markdown bodies.",
@@ -176,7 +234,9 @@ export function registerMcpResources(server: McpServer) {
 
   server.registerResource(
     "project_tasks",
-    new ResourceTemplate("turbo-hub://project/{project}/tasks", { list: undefined }),
+    new ResourceTemplate("turbo-hub://project/{project}/tasks", {
+      list: undefined,
+    }),
     {
       title: "Project tasks",
       description: "Tasks for a project.",
@@ -191,7 +251,9 @@ export function registerMcpResources(server: McpServer) {
 
   server.registerResource(
     "project_memory",
-    new ResourceTemplate("turbo-hub://project/{project}/memory", { list: undefined }),
+    new ResourceTemplate("turbo-hub://project/{project}/memory", {
+      list: undefined,
+    }),
     {
       title: "Project memory",
       description: "Decisions and learnings for a project.",
@@ -210,7 +272,9 @@ export function registerMcpResources(server: McpServer) {
 
   server.registerResource(
     "project_runs",
-    new ResourceTemplate("turbo-hub://project/{project}/runs", { list: undefined }),
+    new ResourceTemplate("turbo-hub://project/{project}/runs", {
+      list: undefined,
+    }),
     {
       title: "Project runs",
       description: "Manual or external agent runs for a project.",
@@ -294,7 +358,10 @@ export function registerMcpResources(server: McpServer) {
     },
     async (uri, variables, extra) => {
       const { workspaceId } = requireAuth(extra)
-      return jsonResource(uri, await listContextPacks(workspaceId, single(variables.taskId)))
+      return jsonResource(
+        uri,
+        await listContextPacks(workspaceId, single(variables.taskId))
+      )
     }
   )
 

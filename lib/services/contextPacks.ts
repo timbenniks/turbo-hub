@@ -10,6 +10,7 @@ import { listDecisions } from "@/lib/services/decisions"
 import { listLearnings } from "@/lib/services/learnings"
 import { findRelevantPatterns } from "@/lib/services/patterns"
 import { getProjectById } from "@/lib/services/projects"
+import { getRepository } from "@/lib/services/repositories"
 import { getSpec, specBody } from "@/lib/services/specs"
 import { getTask } from "@/lib/services/tasks"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
@@ -22,7 +23,9 @@ function estimateTokens(text: string): number {
 }
 
 function bulletList(items: string[]): string {
-  return items.length ? items.map((i) => `- ${i}`).join("\n") : "_None recorded._"
+  return items.length
+    ? items.map((i) => `- ${i}`).join("\n")
+    : "_None recorded._"
 }
 
 export async function listContextPacks(
@@ -49,7 +52,10 @@ export async function getContextPack(
     .select()
     .from(contextPacks)
     .where(
-      and(eq(contextPacks.workspaceId, workspaceId), eq(contextPacks.id, packId))
+      and(
+        eq(contextPacks.workspaceId, workspaceId),
+        eq(contextPacks.id, packId)
+      )
     )
     .limit(1)
   return row ?? null
@@ -73,16 +79,20 @@ export async function assembleContextPack(
   if (!project) return null
 
   const tagNames = project.tags.map((t) => t.name)
-  const [spec, allDecisions, learnings, patterns] = await Promise.all([
-    task.specId ? getSpec(workspaceId, task.specId) : Promise.resolve(null),
-    listDecisions(workspaceId, project.id),
-    listLearnings(workspaceId, project.id),
-    findRelevantPatterns(workspaceId, {
-      tags: tagNames,
-      stack: project.stack,
-      limit: 5,
-    }),
-  ])
+  const [spec, allDecisions, learnings, patterns, repository] =
+    await Promise.all([
+      task.specId ? getSpec(workspaceId, task.specId) : Promise.resolve(null),
+      listDecisions(workspaceId, project.id),
+      listLearnings(workspaceId, project.id),
+      findRelevantPatterns(workspaceId, {
+        tags: tagNames,
+        stack: project.stack,
+        limit: 5,
+      }),
+      project.repositoryId
+        ? getRepository(workspaceId, project.repositoryId)
+        : Promise.resolve(null),
+    ])
   const decisions = allDecisions.filter((d) => d.status === "accepted")
 
   const body = sections(
@@ -99,8 +109,8 @@ export async function assembleContextPack(
       spec ? `### ${spec.title}\n${specBody(spec)}` : "_No spec linked._"
     }`,
     `## Repository\n${
-      project.repositoryId
-        ? `Linked repository: ${project.repositoryId}`
+      repository
+        ? `${repository.fullName}\nURL: ${repository.url}\nDefault branch: ${repository.defaultBranch}`
         : "_No repository linked yet._"
     }`,
     `## Commands\n_None recorded yet._`,
@@ -112,7 +122,9 @@ export async function assembleContextPack(
       learnings.map((l) => `${l.title} (${labelize(l.type)})`)
     )}`,
     `## Reusable patterns\n${bulletList(
-      patterns.map((p) => `${p.summary}${p.appliesTo ? ` — ${p.appliesTo}` : ""}`)
+      patterns.map(
+        (p) => `${p.summary}${p.appliesTo ? ` — ${p.appliesTo}` : ""}`
+      )
     )}`,
     `## Guardrails\n- Never include secrets, credentials, or tokens in code or output.\n- Stay within the task's acceptance criteria; flag scope changes instead of expanding silently.${
       project.constraints ? `\n- ${project.constraints}` : ""
@@ -185,7 +197,10 @@ export async function updateContextPack(
     .update(contextPacks)
     .set(fields)
     .where(
-      and(eq(contextPacks.workspaceId, workspaceId), eq(contextPacks.id, packId))
+      and(
+        eq(contextPacks.workspaceId, workspaceId),
+        eq(contextPacks.id, packId)
+      )
     )
     .returning()
   return row ?? null
@@ -237,7 +252,10 @@ export async function sendContextPack(
     .update(contextPacks)
     .set({ status: "sent", sentAt: new Date() })
     .where(
-      and(eq(contextPacks.workspaceId, workspaceId), eq(contextPacks.id, packId))
+      and(
+        eq(contextPacks.workspaceId, workspaceId),
+        eq(contextPacks.id, packId)
+      )
     )
     .returning()
   if (!row) return null

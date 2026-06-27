@@ -132,10 +132,7 @@ export function RunDetail({
               size="sm"
               disabled={busy}
               onClick={() =>
-                act(
-                  () => apiSend(`/api/runs/${run.id}/start`),
-                  "Run started"
-                )
+                act(() => apiSend(`/api/runs/${run.id}/start`), "Run started")
               }
             >
               Start
@@ -150,7 +147,10 @@ export function RunDetail({
                 variant="ghost"
                 disabled={busy}
                 onClick={() =>
-                  act(() => apiSend(`/api/runs/${run.id}/cancel`), "Run canceled")
+                  act(
+                    () => apiSend(`/api/runs/${run.id}/cancel`),
+                    "Run canceled"
+                  )
                 }
               >
                 Cancel
@@ -231,8 +231,8 @@ export function RunDetail({
           />
         </div>
         <p className="text-sm text-muted-foreground">
-          Capture what this run taught you, then promote it to a pattern from the
-          project&apos;s Learnings tab.
+          Capture what this run taught you, then promote it to a pattern from
+          the project&apos;s Learnings tab.
         </p>
       </div>
 
@@ -332,7 +332,10 @@ function FailDialog({
       }
       disabled={disabled}
       onSubmit={(values) =>
-        act(() => apiSend(`/api/runs/${runId}/fail`, "POST", values), "Run failed")
+        act(
+          () => apiSend(`/api/runs/${runId}/fail`, "POST", values),
+          "Run failed"
+        )
       }
     >
       <Field label="Error" htmlFor="run-error">
@@ -420,11 +423,17 @@ function LinkPrDialog({
         )
       }
     >
-      <Field label="Title" htmlFor="pr-title">
-        <Input id="pr-title" name="title" required />
-      </Field>
       <Field label="URL" htmlFor="pr-url">
-        <Input id="pr-url" name="url" type="url" placeholder="https://github.com/…" />
+        <Input
+          id="pr-url"
+          name="url"
+          type="url"
+          placeholder="https://github.com/owner/repo/pull/123"
+          required
+        />
+      </Field>
+      <Field label="Title" htmlFor="pr-title">
+        <Input id="pr-title" name="title" />
       </Field>
       <Field label="Branch" htmlFor="pr-branch">
         <Input id="pr-branch" name="branch" />
@@ -455,8 +464,7 @@ function CaptureLearningDialog({
       disabled={disabled}
       onSubmit={(values) =>
         act(
-          () =>
-            apiSend(`/api/projects/${projectId}/learnings`, "POST", values),
+          () => apiSend(`/api/projects/${projectId}/learnings`, "POST", values),
           "Learning captured"
         )
       }

@@ -1,9 +1,12 @@
 import { and, desc, eq } from "drizzle-orm"
 
 import { db } from "@/db"
-import { agentRuns, pullRequests } from "@/db/schema"
+import { agentRuns, projects, pullRequests, repositories } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
+import { cacheTags, invalidateTags } from "@/lib/cache"
+import { parseGitHubPullRequestUrl } from "@/lib/github/pull-request-url"
 import { recordActivity } from "@/lib/services/activity"
+import { upsertGitHubRepository } from "@/lib/services/repositories"
 import { recordRunEvent } from "@/lib/services/runs"
 import { assertWorkspaceMember } from "@/lib/services/workspaces"
 import type {
@@ -12,6 +15,9 @@ import type {
 } from "@/lib/validation/pull-requests"
 
 export type PullRequest = typeof pullRequests.$inferSelect
+export type PullRequestWithRepository = PullRequest & {
+  repository: typeof repositories.$inferSelect | null
+}
 
 export async function listPullRequests(
   workspaceId: string,
@@ -27,6 +33,28 @@ export async function listPullRequests(
       )
     )
     .orderBy(desc(pullRequests.updatedAt))
+}
+
+export async function listPullRequestsWithRepository(
+  workspaceId: string,
+  projectId: string
+): Promise<PullRequestWithRepository[]> {
+  const rows = await db
+    .select({ pullRequest: pullRequests, repository: repositories })
+    .from(pullRequests)
+    .leftJoin(repositories, eq(repositories.id, pullRequests.repositoryId))
+    .where(
+      and(
+        eq(pullRequests.workspaceId, workspaceId),
+        eq(pullRequests.projectId, projectId)
+      )
+    )
+    .orderBy(desc(pullRequests.updatedAt))
+
+  return rows.map((row) => ({
+    ...row.pullRequest,
+    repository: row.repository,
+  }))
 }
 
 export async function listPullRequestsForRun(
@@ -75,6 +103,20 @@ export async function createPullRequest(
   input: PullRequestCreateInput
 ): Promise<PullRequest> {
   await assertWorkspaceMember(ctx, workspaceId)
+  const parsedPr = parseGitHubPullRequestUrl(input.url)
+  const repository = parsedPr
+    ? await upsertGitHubRepository(ctx, workspaceId, {
+        owner: parsedPr.owner,
+        name: parsedPr.repo,
+        url: `https://github.com/${parsedPr.fullName}`,
+        defaultBranch: input.baseBranch ?? "main",
+      })
+    : null
+
+  const title =
+    input.title ??
+    (parsedPr ? `${parsedPr.fullName} #${parsedPr.number}` : "Pull request")
+
   const [row] = await db
     .insert(pullRequests)
     .values({
@@ -82,11 +124,14 @@ export async function createPullRequest(
       projectId,
       taskId: input.taskId ?? null,
       runId: input.runId ?? null,
+      repositoryId: repository?.id ?? null,
       provider: input.provider,
-      externalId: input.externalId ?? null,
-      number: input.number ?? null,
-      title: input.title,
-      url: input.url ?? null,
+      externalId:
+        input.externalId ??
+        (parsedPr ? `${parsedPr.fullName}#${parsedPr.number}` : null),
+      number: input.number ?? parsedPr?.number ?? null,
+      title,
+      url: parsedPr?.url ?? input.url ?? null,
       state: input.state,
       author: input.author ?? null,
       branch: input.branch ?? null,
@@ -94,6 +139,30 @@ export async function createPullRequest(
       createdBy: ctx.userId,
     })
     .returning()
+
+  if (repository) {
+    const [project] = await db
+      .select({ repositoryId: projects.repositoryId, slug: projects.slug })
+      .from(projects)
+      .where(
+        and(eq(projects.workspaceId, workspaceId), eq(projects.id, projectId))
+      )
+      .limit(1)
+
+    if (project && !project.repositoryId) {
+      await db
+        .update(projects)
+        .set({ repositoryId: repository.id })
+        .where(
+          and(eq(projects.workspaceId, workspaceId), eq(projects.id, projectId))
+        )
+      invalidateTags(
+        cacheTags.projectsList(workspaceId),
+        cacheTags.project(workspaceId, projectId),
+        cacheTags.projectBySlug(project.slug)
+      )
+    }
+  }
 
   if (input.runId) {
     await db
@@ -125,7 +194,13 @@ export async function createPullRequest(
     actorId: ctx.userId,
     type: "pull_request.linked",
     title: `Linked pull request "${row.title}"`,
-    metadata: { pullRequestId: row.id, taskId: input.taskId, runId: input.runId },
+    metadata: {
+      pullRequestId: row.id,
+      taskId: input.taskId,
+      runId: input.runId,
+      repositoryId: row.repositoryId,
+      number: row.number,
+    },
   })
   return row
 }

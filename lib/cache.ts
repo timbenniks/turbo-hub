@@ -32,6 +32,10 @@ export const cacheTags = {
   workspaceTasks: (workspaceId: string) => `workspace-tasks:${workspaceId}`,
   /** Workspace-wide run aggregates (dashboard active-runs count). */
   workspaceRuns: (workspaceId: string) => `workspace-runs:${workspaceId}`,
+  /** Repository lists and linked repo panels. */
+  repositories: (workspaceId: string) => `repositories:${workspaceId}`,
+  /** Integration settings lists. */
+  integrations: (workspaceId: string) => `integrations:${workspaceId}`,
 }
 
 /**

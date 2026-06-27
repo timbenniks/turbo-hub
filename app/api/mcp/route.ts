@@ -14,6 +14,8 @@ import { registerSearchTools } from "@/lib/mcp/tools/search"
 import { registerRunTools } from "@/lib/mcp/tools/runs"
 import { registerPullRequestTools } from "@/lib/mcp/tools/pull-requests"
 import { registerAgentProfileTools } from "@/lib/mcp/tools/agent-profiles"
+import { registerRepositoryTools } from "@/lib/mcp/tools/repositories"
+import { registerIntegrationTools } from "@/lib/mcp/tools/integrations"
 import { registerMcpResources } from "@/lib/mcp/resources"
 import { registerMcpPrompts } from "@/lib/mcp/prompts"
 
@@ -34,6 +36,8 @@ const handler = createMcpHandler(
     registerRunTools(server)
     registerPullRequestTools(server)
     registerAgentProfileTools(server)
+    registerRepositoryTools(server)
+    registerIntegrationTools(server)
     registerMcpResources(server)
     registerMcpPrompts(server)
   },

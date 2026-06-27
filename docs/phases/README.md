@@ -41,6 +41,9 @@ Already in the repo (`AGENTS.md` describes the project conventions):
 - Manual agent-run layer: agent profiles, task run dispatch, run timelines,
   run completion/failure/cancel flows, project/top-level run lists, manual PR
   linking, and learning capture.
+- Repository/integration foundation: workspace repositories, project-to-repo
+  linking, GitHub PR URL parsing, repository-aware PR lists, encrypted
+  integration secret storage, and repo metadata in context packs.
 - MCP adapter: `/api/mcp` exposes tools over the same domain services used by
   the UI/API. `thub_` API keys are hashed, revocable, expirable, and scoped for
   API/MCP read/write. MCP mutating tools require `mcp:write`.
@@ -52,8 +55,12 @@ Still not present or intentionally incomplete:
 
 - Real external runner adapters: Cursor cloud (Phase 4) and local Claude/CLI
   runner (Phase 7) are not implemented.
-- GitHub App/webhooks/repository linking (Phase 5) are not implemented; PRs are
-  manually linked for now.
+- Full GitHub App/webhooks (Phase 5) are not implemented. Repositories can be
+  linked manually and GitHub PR URLs populate repository/PR metadata, but there
+  is no App installation flow, webhook signature verification, check tracking,
+  or automatic PR sync yet.
+- Integration secrets can be stored encrypted with `INTEGRATION_SECRET_KEY`, but
+  the Cursor and GitHub adapters that consume those secrets are not implemented.
 - MCP/API token hardening is simplified compared with the full spec: there are
   coarse read/write scopes and expiry, but no per-project allowlist, per-tool
   allowlist, rate limits, idempotency keys, or dedicated audit-log table yet.
@@ -76,16 +83,16 @@ adapters behind a common interface — no vendor logic leaks into the core.
 
 ## Phase map
 
-| Phase | Spec slice | Theme | Outcome |
-|-------|-----------|-------|---------|
-| [0](./phase-0-foundation.md) | Slice 1 | Foundation | Auth, schema, workspace bootstrap, project CRUD, tags, dashboard |
-| [1](./phase-1-planning.md) | Slice 2 | Planning layer | Plans, specs, tasks, project overview (hand-filled / MCP / paste) |
-| [2](./phase-2-context-memory.md) | Slice 3 | Context + memory | Context packs, decisions, learnings, patterns, search |
-| [3](./phase-3-agent-runs.md) | Slice 4 | Agent runs | Agent profiles, manual runs, timeline, events, manual learning capture |
-| [4](./phase-4-cursor-dispatch.md) | Slice 5 | Cursor cloud | Cursor integration, dispatch, external run tracking |
-| [5](./phase-5-github.md) | Slice 6 | GitHub | GitHub App, repo connect, PR tracking, webhooks |
-| [6](./phase-6-mcp.md) | Slice 7 | MCP server | Read-only resources/tools, scoped writes, tokens, audit |
-| [7](./phase-7-cli-local-runner.md) | Slice 8 | CLI + local runner | CLI auth/commands, local Claude Agent SDK runner |
+| Phase                              | Spec slice | Theme              | Outcome                                                                |
+| ---------------------------------- | ---------- | ------------------ | ---------------------------------------------------------------------- |
+| [0](./phase-0-foundation.md)       | Slice 1    | Foundation         | Auth, schema, workspace bootstrap, project CRUD, tags, dashboard       |
+| [1](./phase-1-planning.md)         | Slice 2    | Planning layer     | Plans, specs, tasks, project overview (hand-filled / MCP / paste)      |
+| [2](./phase-2-context-memory.md)   | Slice 3    | Context + memory   | Context packs, decisions, learnings, patterns, search                  |
+| [3](./phase-3-agent-runs.md)       | Slice 4    | Agent runs         | Agent profiles, manual runs, timeline, events, manual learning capture |
+| [4](./phase-4-cursor-dispatch.md)  | Slice 5    | Cursor cloud       | Cursor integration, dispatch, external run tracking                    |
+| [5](./phase-5-github.md)           | Slice 6    | GitHub             | GitHub App, repo connect, PR tracking, webhooks                        |
+| [6](./phase-6-mcp.md)              | Slice 7    | MCP server         | Read-only resources/tools, scoped writes, tokens, audit                |
+| [7](./phase-7-cli-local-runner.md) | Slice 8    | CLI + local runner | CLI auth/commands, local Claude Agent SDK runner                       |
 
 The **first meaningful demo** (spec §33) is reached at the end of Phase 3 for
 manual runs, Phase 4 for Cursor — sign in → project → plan → spec → tasks →
@@ -104,7 +111,7 @@ of that path is now the current smoke-test target.
 - **IDs:** use `ulid`/`uuid` text PKs for app tables (sortable, agent-friendly),
   not serial — agents reference IDs across systems.
 - **Verify each phase:** `npm run typecheck`, `npm run lint`, `npx drizzle-kit
-  generate && migrate`, and exercise the acceptance criteria before moving on.
+generate && migrate`, and exercise the acceptance criteria before moving on.
 
 ## Open questions to resolve before/while building
 
