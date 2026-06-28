@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNotNull } from "drizzle-orm"
 
 import { db } from "@/db"
 import { projects, repositories } from "@/db/schema"
@@ -58,6 +58,22 @@ export async function listRepositories(
     .select()
     .from(repositories)
     .where(eq(repositories.workspaceId, workspaceId))
+    .orderBy(repositories.fullName)
+}
+
+export async function listInstalledGitHubRepositories(
+  workspaceId: string
+): Promise<Repository[]> {
+  return db
+    .select()
+    .from(repositories)
+    .where(
+      and(
+        eq(repositories.workspaceId, workspaceId),
+        eq(repositories.provider, "github"),
+        isNotNull(repositories.githubInstallationId)
+      )
+    )
     .orderBy(repositories.fullName)
 }
 

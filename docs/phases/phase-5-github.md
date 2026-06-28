@@ -38,14 +38,19 @@ Built as foundation:
   accept a pasted GitHub URL.
 - `check_run` and `check_suite` webhooks are normalized into run timeline check
   events for linked PRs. Merged linked PRs mark their task done.
+- GitHub App lifecycle hardening exists: installation delete/suspend/unsuspend
+  and repository add/remove webhooks update integration status and installed repo
+  availability.
+- Settings shows the installed repository list and provides an explicit GitHub
+  repository resync action.
+- PR/check webhooks now skip repository records tied to a different GitHub App
+  installation, and only backfill installation IDs on older unassigned records.
 
 Still to build for this phase:
 
-- GitHub App install management polish: uninstall/suspend webhook handling,
-  explicit resync, and showing which repos are currently available.
-- Installation-aware repository matching everywhere. Repos now store installation
-  IDs after install sync, but PR webhook matching still starts from repository
-  full name and then refreshes installation ID.
+- Optional polish: issue-comment handling for bot commands/comments, explicit
+  user settings for merge-to-task-done behavior, and branch/PR creation if the
+  app is ever granted write permissions.
 
 ## Start here (tomorrow)
 
@@ -91,7 +96,7 @@ npm i octokit @octokit/webhooks
 - [x] `repositories` (provider, owner, name, full_name, url, default_branch,
       github_installation_id, workspace_id).
 - [x] Extend `projects.repository_id` and `pull_requests.repository_id`.
-- [ ] Persist GitHub App installation metadata from a real installation flow.
+- [x] Persist GitHub App installation metadata from a real installation flow.
 
 ### 2. GitHub App (`lib/github/`)
 
@@ -147,14 +152,14 @@ GET  /api/integrations   POST /api/integrations/github   DELETE /api/integration
 
 ## Acceptance criteria (spec §19, §28.6)
 
-- [ ] Login still uses identity-only OAuth; repo access is via the App only
+- [x] Login still uses identity-only OAuth; repo access is via the App only
       (spec §19.1).
-- [ ] Connect a repo to a project through the App.
-- [ ] PR opened with hub metadata or `task/...` branch auto-links to task + run.
-- [ ] Webhook signatures verified; PR opened/synced/closed/merged update hub state.
-- [ ] Check pass/fail events appear on the run timeline.
-- [ ] Manual PR-linking fallback still works.
-- [ ] typecheck + lint clean; migrations apply.
+- [x] Connect a repo to a project through the App.
+- [x] PR opened with hub metadata or `task/...` branch auto-links to task + run.
+- [x] Webhook signatures verified; PR opened/synced/closed/merged update hub state.
+- [x] Check pass/fail events appear on the run timeline.
+- [x] Manual PR-linking fallback still works.
+- [x] typecheck + lint clean; migrations apply.
 
 ## Notes
 

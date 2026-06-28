@@ -3,6 +3,10 @@ import { Webhooks } from "@octokit/webhooks"
 import { AuthError } from "@/lib/auth/context"
 import type { PullRequestState } from "@/lib/enums"
 import {
+  syncGitHubInstallationForWebhook,
+  updateGitHubInstallationLifecycle,
+} from "@/lib/services/githubInstallations"
+import {
   recordGitHubCheckFromWebhook,
   upsertPullRequestFromGitHubWebhook,
 } from "@/lib/services/pullRequests"
@@ -51,6 +55,11 @@ type GitHubCheckPayload = {
   }
 }
 
+type GitHubInstallationPayload = {
+  action: string
+  installation?: { id: number }
+}
+
 function webhookSecret() {
   const secret = process.env.GITHUB_APP_WEBHOOK_SECRET
   if (!secret) {
@@ -84,6 +93,13 @@ export async function handleGitHubWebhook(input: {
   deliveryId?: string | null
   payload: unknown
 }) {
+  if (
+    input.event === "installation" ||
+    input.event === "installation_repositories"
+  ) {
+    return handleGitHubInstallationWebhook(input)
+  }
+
   if (input.event === "check_run" || input.event === "check_suite") {
     return handleGitHubCheckWebhook(input)
   }
@@ -164,4 +180,57 @@ async function handleGitHubCheckWebhook(input: {
   })
 
   return { ok: true, ignored: result === 0, checksRecorded: result }
+}
+
+async function handleGitHubInstallationWebhook(input: {
+  event: string
+  deliveryId?: string | null
+  payload: unknown
+}) {
+  const payload = input.payload as GitHubInstallationPayload
+  const installationId = payload.installation?.id
+    ? String(payload.installation.id)
+    : null
+  if (!installationId) {
+    throw new AuthError("Invalid GitHub installation payload", 400)
+  }
+
+  if (input.event === "installation_repositories") {
+    const synced = await syncGitHubInstallationForWebhook(installationId)
+    return {
+      ok: true,
+      ignored: synced === 0,
+      installationsSynced: synced,
+      action: payload.action,
+    }
+  }
+
+  if (payload.action === "deleted") {
+    const updated = await updateGitHubInstallationLifecycle({
+      installationId,
+      status: "disabled",
+      reason: "deleted",
+    })
+    return { ok: true, ignored: updated === 0, installationsUpdated: updated }
+  }
+
+  if (payload.action === "suspend") {
+    const updated = await updateGitHubInstallationLifecycle({
+      installationId,
+      status: "disabled",
+      reason: "suspended",
+    })
+    return { ok: true, ignored: updated === 0, installationsUpdated: updated }
+  }
+
+  if (payload.action === "unsuspend") {
+    const updated = await updateGitHubInstallationLifecycle({
+      installationId,
+      status: "active",
+      reason: "unsuspended",
+    })
+    return { ok: true, ignored: updated === 0, installationsUpdated: updated }
+  }
+
+  return { ok: true, ignored: true, reason: "unsupported_installation_action" }
 }

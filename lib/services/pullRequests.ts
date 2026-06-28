@@ -328,7 +328,15 @@ export async function upsertPullRequestFromGitHubWebhook(
   for (const repository of repositoryRows) {
     if (
       input.repository.githubInstallationId &&
+      repository.githubInstallationId &&
       repository.githubInstallationId !== input.repository.githubInstallationId
+    ) {
+      continue
+    }
+
+    if (
+      input.repository.githubInstallationId &&
+      !repository.githubInstallationId
     ) {
       await db
         .update(repositories)

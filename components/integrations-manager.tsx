@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Plus, Webhook } from "lucide-react"
+import { ExternalLink, Plus, RefreshCw, Webhook } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Button } from "@/components/ui/button"
@@ -25,8 +25,10 @@ import type { Integration } from "@/lib/services/integrations"
 
 export function IntegrationsManager({
   integrations,
+  repositories,
 }: {
   integrations: Integration[]
+  repositories: { id: string; fullName: string; url: string }[]
 }) {
   const { busy, run } = useAsyncAction()
   const githubIntegration = integrations.find(
@@ -71,26 +73,63 @@ export function IntegrationsManager({
                   : `${githubRepositoryCount} repos synced`}
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              disabled={busy}
-              onClick={() => {
-                if (!confirm("Delete GitHub App integration record?")) return
-                run(
-                  () =>
-                    apiSend(
-                      `/api/integrations/${githubIntegration.id}`,
-                      "DELETE"
-                    ),
-                  "Integration deleted"
-                )
-              }}
-            >
-              Delete
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    () => apiSend("/api/integrations/github/resync", "POST"),
+                    "GitHub repositories synced"
+                  )
+                }
+              >
+                <RefreshCw />
+                Resync
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={busy}
+                onClick={() => {
+                  if (!confirm("Delete GitHub App integration record?")) return
+                  run(
+                    () =>
+                      apiSend(
+                        `/api/integrations/${githubIntegration.id}`,
+                        "DELETE"
+                      ),
+                    "Integration deleted"
+                  )
+                }}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
+          {repositories.length > 0 ? (
+            <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+              {repositories.map((repository) => (
+                <li key={repository.id}>
+                  <a
+                    href={repository.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-2 text-xs transition-colors hover:bg-muted/40"
+                  >
+                    <span className="truncate">{repository.fullName}</span>
+                    <ExternalLink className="size-3.5 text-muted-foreground" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">
+              No installed repositories synced yet.
+            </p>
+          )}
         </div>
       ) : null}
 

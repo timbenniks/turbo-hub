@@ -7,21 +7,24 @@ import { listAgentAuditEvents } from "@/lib/services/activity"
 import { listApiKeys } from "@/lib/services/api-keys"
 import { listIntegrations } from "@/lib/services/integrations"
 import { listProjects } from "@/lib/services/projects"
+import { listInstalledGitHubRepositories } from "@/lib/services/repositories"
 import { getPrimaryWorkspaceId } from "@/lib/services/workspaces"
 
 export default async function SettingsPage() {
   const ctx = await requireSessionUser()
   const workspaceId = await getPrimaryWorkspaceId(ctx.userId)
-  const [keys, integrations, projects, auditEvents] = await Promise.all([
-    listApiKeys(ctx.userId),
-    workspaceId ? listIntegrations(workspaceId) : Promise.resolve([]),
-    workspaceId
-      ? listProjects(workspaceId, { includeArchived: true })
-      : Promise.resolve([]),
-    workspaceId
-      ? listAgentAuditEvents(workspaceId)
-      : Promise.resolve([]),
-  ])
+  const [keys, integrations, projects, repositories, auditEvents] =
+    await Promise.all([
+      listApiKeys(ctx.userId),
+      workspaceId ? listIntegrations(workspaceId) : Promise.resolve([]),
+      workspaceId
+        ? listProjects(workspaceId, { includeArchived: true })
+        : Promise.resolve([]),
+      workspaceId
+        ? listInstalledGitHubRepositories(workspaceId)
+        : Promise.resolve([]),
+      workspaceId ? listAgentAuditEvents(workspaceId) : Promise.resolve([]),
+    ])
 
   return (
     <div className="space-y-8">
@@ -74,7 +77,14 @@ export default async function SettingsPage() {
               Secret values are encrypted at rest and never shown again.
             </p>
           </div>
-          <IntegrationsManager integrations={integrations} />
+          <IntegrationsManager
+            integrations={integrations}
+            repositories={repositories.map((repo) => ({
+              id: repo.id,
+              fullName: repo.fullName,
+              url: repo.url,
+            }))}
+          />
         </section>
       </div>
 
