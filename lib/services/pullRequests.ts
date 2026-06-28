@@ -518,6 +518,17 @@ export async function recordGitHubCheckFromWebhook(
         input.conclusion === "success" ||
         input.conclusion === "neutral" ||
         input.conclusion === "skipped"
+      const failed = Boolean(input.conclusion) && !passed
+      const eventType = input.conclusion
+        ? passed
+          ? "check_passed"
+          : "check_failed"
+        : "status_update"
+      const checkState = input.conclusion
+        ? passed
+          ? "passed"
+          : "failed"
+        : input.action
 
       await recordRunEvent({
         workspaceId: repository.workspaceId,
@@ -526,13 +537,14 @@ export async function recordGitHubCheckFromWebhook(
         actorType: "system",
         runId: pr.runId,
         event: {
-          type: passed ? "check_passed" : "check_failed",
-          title: `GitHub check ${passed ? "passed" : "failed"}: ${input.name}`,
+          type: eventType,
+          title: `GitHub check ${checkState}: ${input.name}`,
           metadata: {
             pullRequestId: pr.id,
             deliveryId: input.deliveryId,
             action: input.action,
             conclusion: input.conclusion,
+            failed,
             url: input.htmlUrl,
           },
         },
