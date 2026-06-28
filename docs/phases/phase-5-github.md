@@ -17,7 +17,9 @@ run → PR state (open/merged/closed) and checks reflect in the hub.
 
 ## Current repo status
 
-Built as foundation:
+Status: **complete and manually validated (2026-06-28)**.
+
+Built:
 
 - `repositories` table with workspace/provider/full-name uniqueness.
 - `projects.repository_id` and `pull_requests.repository_id` now reference
@@ -46,42 +48,37 @@ Built as foundation:
 - PR/check webhooks now skip repository records tied to a different GitHub App
   installation, and only backfill installation IDs on older unassigned records.
 
-Still to build for this phase:
+Optional future polish:
 
 - Optional polish: issue-comment handling for bot commands/comments, explicit
   user settings for merge-to-task-done behavior, and branch/PR creation if the
   app is ever granted write permissions.
 
-## Start here (tomorrow)
+## Resume notes
 
-Concrete first steps, smallest shippable slices first:
+Last shipped commit: `6b11c94 feat(github): harden app integration lifecycle`.
 
-1. **Deps + env.** `npm i octokit @octokit/webhooks`. Add env:
-   `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`,
-   `GITHUB_APP_CLIENT_ID/SECRET`. Register a **GitHub App** (separate from the
-   Phase 0 OAuth login app) with permissions: repo metadata (read), pull
-   requests (read/write-for-comment), checks (read); subscribe to `pull_request`,
-   `check_run`, `check_suite`, `issue_comment`.
-2. **`lib/github/app.ts`** — Octokit App + per-installation client helpers
-   (`appOctokit()`, `installationOctokit(installationId)`). No DB logic here.
-3. **Webhook receiver** — `app/api/webhooks/github/route.ts` using
-   `@octokit/webhooks` `verify()` against `GITHUB_APP_WEBHOOK_SECRET` (raw body;
-   remember Next route handlers need `await req.text()` before parsing). Start by
-   handling **`pull_request`** only: upsert the PR via the existing
-   `pullRequests` service, then map state → `agent_run_events` + `activity_events`.
-4. **`lib/github/linking.ts`** — resolve PR → task/run in priority order: (1) PR
-   body metadata `<!-- hub_task_id: … -->` / `hub_run_id` / `hub_project_id`,
-   (2) branch convention `task/{slug}-{shortId}`, (3) existing manual link.
-   Reuse `lib/github/pull-request-url.ts` for owner/repo/number parsing.
-5. **Installation flow** — `app/api/integrations/github/*` callback that stores
-   `github_installation_id` + accessible repos on `repositories`; repo picker in
-   Settings → Integrations (secret storage already exists).
-6. **Checks + close/merge** — extend the webhook to `check_run`/`check_suite`
-   (timeline events) and `pull_request.closed`/merged (PR state + optional task
-   status update, default on for linked tasks).
+Manual validation used project `dx readme doctor` and repo
+`timbenniks/dx-readme-doctor`:
 
-Ship 1–4 first: that alone gives automatic PR linking + state sync for any
-runner's output, which is the highest-leverage piece.
+- Installed the GitHub App and synced repositories.
+- Linked the installed repo to the project.
+- Opened PR `#2` with hub metadata:
+  ```html
+  <!-- hub_project_id: 01KW4B6Z026PHTZRHYCQV8KQYK -->
+  <!-- hub_task_id: 01KW6MWNA8ESC385WMG6WZ4X9T -->
+  <!-- hub_run_id: 01KW6MZJ1GFDSR4V6KFD4RQ1YZ -->
+  ```
+- Verified PR open/synchronize/merge events in the run timeline.
+- Verified check webhooks reach the run timeline.
+- Verified merging the linked PR marked task `01KW6MWNA8ESC385WMG6WZ4X9T` done.
+
+Known historical artifact: one old timeline event was recorded as
+`check_failed` while `conclusion` was `null`; this was fixed after the test.
+Future pending/requested checks become `status_update`.
+
+No core Phase 5 work remains. Continue with
+[Phase 4 Cursor cloud](./phase-4-cursor-dispatch.md).
 
 ## Dependencies to add
 

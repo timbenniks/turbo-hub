@@ -13,8 +13,8 @@ status flows queued → running → completed → PR attached → learning extra
 ## Prerequisites
 
 - Phase 3 complete (runner interface, runs, events, PR linking).
-- A repo associated with the project (manual repo metadata is fine; full GitHub
-  App is Phase 5).
+- Phase 5 GitHub complete: projects can link installed GitHub App repositories,
+  and PR/check webhooks auto-link back to tasks/runs through hub metadata.
 
 ## Current repo status
 
@@ -22,8 +22,10 @@ Built as foundation:
 
 - `integrations` table + settings UI store provider secrets encrypted at rest.
 - `INTEGRATION_SECRET_KEY` is required when saving a secret.
-- Projects can link a GitHub repository, and context packs include repo URL +
-  default branch.
+- Projects can link an installed GitHub App repository, and context packs include
+  repo URL + default branch.
+- Phase 5 GitHub is complete: Cursor-created PRs can auto-link to Hub tasks/runs
+  if the branch/PR body includes hub metadata.
 
 Built as foundation (also confirm before starting):
 
@@ -41,29 +43,40 @@ Still to build for this phase:
 - Dispatch endpoint and task UI that require an approved context pack.
 - Polling/webhook normalization into run events and PR attachment.
 
-## Start here (tomorrow)
+## Start here next
 
-1. **`lib/runners/cursor.ts`** implementing the `Runner` interface, registered in
+Last known good repo state before this phase: `main` pushed at
+`6b11c94 feat(github): harden app integration lifecycle`.
+
+1. **Confirm secret prerequisites.** Production/local env must include
+   `INTEGRATION_SECRET_KEY`; Settings must be able to save a Cursor integration
+   secret. If Cursor requires a distinct provider config shape, extend
+   `lib/validation/integrations.ts` conservatively.
+2. **`lib/runners/cursor.ts`** implementing the `Runner` interface, registered in
    `lib/runners/registry.ts`. `createRun` reads the Cursor key via
    `lib/services/integrations.ts` + `lib/crypto.ts` (decrypt server-side only),
    builds the prompt from the **approved context pack** body (already assembled
    deterministically in Phase 2), calls the Cursor API, and returns the external
    run id + initial status.
-2. **Dispatch endpoint** — `POST /api/tasks/[taskId]/dispatch` with
+3. **Dispatch endpoint** — `POST /api/tasks/[taskId]/dispatch` with
    `{ runner: "cursor", contextPackId }`. Enforce the §20.3 order: pack must be
    **approved**, human-confirmed, then create the hub run and hand off to the
    runner. Reuse `createRun` in `lib/services/runs.ts`.
-3. **Status normalization** — `getRunStatus` maps Cursor states → hub
+4. **Status normalization** — `getRunStatus` maps Cursor states → hub
    `agent_run_events` (status, branch, PR url, summary, errors). Drive it from a
    **Vercel cron** (`vercel.json`) hitting active Cursor runs, or a webhook if
    available (`/api/webhooks/cursor`, verify signature).
-4. **UI** — task dispatch panel: runner picker includes Cursor when configured,
+5. **UI** — task dispatch panel: runner picker includes Cursor when configured,
    shows the pack to be sent, confirm dialog; run page shows external id + live
    status (reuses the Phase 3 timeline).
-5. **PR attach** — once Phase 5 is in, PRs auto-link via branch/metadata; until
-   then the manual PR-link flow (Phase 3) covers it. Have the Cursor adapter emit
-   `task/{slug}-{shortId}` branches + hub metadata in the PR body so Phase 5
-   linking is automatic.
+6. **PR attach** — have the Cursor adapter emit `task/{slug}-{shortId}` branches
+   and PR body metadata:
+   ```html
+   <!-- hub_project_id: PROJECT_ID -->
+   <!-- hub_task_id: TASK_ID -->
+   <!-- hub_run_id: RUN_ID -->
+   ```
+   Phase 5 will then auto-link PRs/checks/merge state back to the run and task.
 
 Keep **all** Cursor-specific logic inside `lib/runners/cursor.ts` — the core
 dispatch service calls `runner.createRun`, never the Cursor API directly.

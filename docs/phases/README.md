@@ -7,13 +7,13 @@
 > external-agent flow. Context packs assemble deterministically. Anywhere the
 > phase docs below say "generate" / "AI-assisted", read it through that lens.
 > Also note the build order diverged from the list below: **Phases 0–3 are built
-> (Phase 3 in manual-runner form)**, and **Phase 6 (MCP server + `thub_` tokens)
-> shipped early and is now fully hardened** (per-project/tool allowlists, rate
-> limiting, idempotency, agent audit log — see [phase 6](./phase-6-mcp.md)).
-> A UI/UX overhaul + light-default theme also shipped (not a numbered phase).
-> **Next up: the two real runners — [Phase 5 GitHub](./phase-5-github.md) and
-> [Phase 4 Cursor cloud](./phase-4-cursor-dispatch.md).** Phase 7 (CLI + local
-> Claude runner) comes after those.
+> (Phase 3 in manual-runner form)**, **Phase 5 GitHub is built and verified**,
+> and **Phase 6 (MCP server + `thub_` tokens) shipped early and is now fully
+> hardened** (per-project/tool allowlists, rate limiting, idempotency, agent
+> audit log — see [phase 6](./phase-6-mcp.md)). A UI/UX overhaul +
+> light-default theme also shipped (not a numbered phase).
+> **Next up: [Phase 4 Cursor cloud](./phase-4-cursor-dispatch.md).** Phase 7
+> (CLI + local Claude runner) comes after that.
 
 This directory slices [`docs/spec.md`](../spec.md) into ordered, shippable phases.
 Each phase doc is self-contained: goal, prerequisites, task checklist, files to
@@ -45,6 +45,11 @@ Already in the repo (`AGENTS.md` describes the project conventions):
 - Manual agent-run layer: agent profiles, task run dispatch, run timelines,
   run completion/failure/cancel flows, project/top-level run lists, manual PR
   linking, and learning capture.
+- GitHub integration layer: GitHub App install/callback, signed install state,
+  repository sync + resync, project repo picker, webhook signature verification,
+  PR open/sync/merge tracking, check run/suite timeline events, lifecycle
+  handling for installation suspend/delete/repository changes, and merge-to-task
+  completion for linked PRs.
 - Repository/integration foundation: workspace repositories, project-to-repo
   linking, GitHub PR URL parsing, repository-aware PR lists, encrypted
   integration secret storage, and repo metadata in context packs.
@@ -66,14 +71,36 @@ Still not present or intentionally incomplete:
 
 - Real external runner adapters: Cursor cloud (Phase 4) and local Claude/CLI
   runner (Phase 7) are not implemented.
-- Full GitHub App/webhooks (Phase 5) are not implemented. Repositories can be
-  linked manually and GitHub PR URLs populate repository/PR metadata, but there
-  is no App installation flow, webhook signature verification, check tracking,
-  or automatic PR sync yet.
 - Integration secrets can be stored encrypted with `INTEGRATION_SECRET_KEY`, but
-  the Cursor and GitHub adapters that consume those secrets are not implemented.
+  the Cursor adapter that consumes those secrets is not implemented.
 - Learning extraction is manual/human-approved. The hub stores learnings; it
   does not call an in-app model to draft them.
+
+## Resume here
+
+Last verified state:
+
+- Phase 5 GitHub was committed and pushed as
+  `6b11c94 feat(github): harden app integration lifecycle`.
+- Deployed GitHub App flow was manually validated with project
+  `dx readme doctor`: install, repo sync, project repo linking, PR webhook
+  linking, synchronize events, check events, merge events, and task completion.
+- The test branch `test/github-app-webhook` is gone locally/remotely in
+  `timbenniks/dx-readme-doctor`.
+- The only known historical artifact is an old run timeline event that was
+  incorrectly recorded as `check_failed` before the mapping fix. Future pending
+  checks now record as `status_update`.
+
+Start next with [Phase 4 Cursor cloud](./phase-4-cursor-dispatch.md):
+
+1. Confirm production has `INTEGRATION_SECRET_KEY` and a Cursor integration can
+   save an encrypted API key.
+2. Implement `lib/runners/cursor.ts` behind the existing runner interface.
+3. Add `POST /api/tasks/[taskId]/dispatch` for approved context pack → confirmed
+   dispatch → hub run → Cursor external run.
+4. Add status polling/webhook normalization into the existing run timeline.
+5. Ensure Cursor-created branches/PRs include hub metadata so Phase 5 auto-links
+   them.
 
 ## Target architecture (spec §15)
 

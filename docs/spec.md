@@ -19,12 +19,14 @@
 > Phase 7 **local runner**, which is itself the local model executing tasks — not
 > the hub calling out to one.
 >
-> **Implementation status (2026-06-27):** the hub has manual project planning,
+> **Implementation status (2026-06-28):** the hub has manual project planning,
 > context/memory, manual agent runs, MCP tools, repository records,
-> project-to-repository linking, repository-aware manual PR tracking, and
-> encrypted integration secret storage. Cursor dispatch, GitHub App
-> installation/webhooks, check syncing, and local CLI runner automation remain
-> future work.
+> project-to-repository linking, repository-aware manual PR tracking, encrypted
+> integration secret storage, and a working GitHub App integration. GitHub App
+> install/callback, repo sync/resync, webhook signature verification, PR
+> open/sync/merge tracking, check run/suite timeline events, installation
+> lifecycle handling, and merge-to-task completion are built and manually
+> validated. Cursor dispatch and local CLI runner automation remain future work.
 
 ## 1. Working title
 
