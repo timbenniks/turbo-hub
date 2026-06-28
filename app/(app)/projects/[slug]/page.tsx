@@ -10,7 +10,7 @@ import { listDecisions } from "@/lib/services/decisions"
 import { listLearnings } from "@/lib/services/learnings"
 import { getActivePlan } from "@/lib/services/plans"
 import { listPullRequests } from "@/lib/services/pullRequests"
-import { getRepository } from "@/lib/services/repositories"
+import { getRepository, listRepositories } from "@/lib/services/repositories"
 import { listProjectRuns } from "@/lib/services/runs"
 import { listSpecs } from "@/lib/services/specs"
 import { getProjectTaskCounts, listTasks } from "@/lib/services/tasks"
@@ -80,6 +80,7 @@ export default async function ProjectOverviewPage({
       decisions,
       learnings,
       repository,
+      repositories,
       specs,
       tasks,
       runs,
@@ -92,6 +93,7 @@ export default async function ProjectOverviewPage({
       project.repositoryId
         ? getRepository(workspaceId, project.repositoryId)
         : Promise.resolve(null),
+      listRepositories(workspaceId),
       listSpecs(workspaceId, project.id),
       listTasks(workspaceId, project.id),
       listProjectRuns(workspaceId, project.id),
@@ -295,6 +297,7 @@ export default async function ProjectOverviewPage({
               <ProjectRepositoryPanel
                 projectId={project.id}
                 repository={repository}
+                repositories={repositories}
               />
             </div>
 

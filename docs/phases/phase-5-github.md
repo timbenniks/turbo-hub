@@ -26,12 +26,26 @@ Built as foundation:
 - Manual PR linking parses GitHub PR URLs, stores repo + PR number metadata, and
   auto-links the project to the repo if it was not already linked.
 - Project PR tab displays repository-aware PR rows.
+- GitHub App backend foundation exists: Octokit App helpers,
+  `POST /api/webhooks/github` with `X-Hub-Signature-256` verification,
+  `pull_request` webhook normalization, hub metadata/branch linking, and
+  service-level PR upsert into the existing PR/run timeline model.
+- GitHub App installation flow exists: Settings links to
+  `/api/integrations/github/install`, callback verifies signed state, authenticates
+  as the installation, syncs accessible repositories into `repositories`, and
+  stores installation metadata in the GitHub integration config.
+- Project repository linking can now pick from installed repositories as well as
+  accept a pasted GitHub URL.
+- `check_run` and `check_suite` webhooks are normalized into run timeline check
+  events for linked PRs. Merged linked PRs mark their task done.
 
 Still to build for this phase:
 
-- GitHub App installation/callback flow and repository discovery.
-- Webhook endpoint with signature verification.
-- Automatic PR/check syncing and task/run status updates from webhooks.
+- GitHub App install management polish: uninstall/suspend webhook handling,
+  explicit resync, and showing which repos are currently available.
+- Installation-aware repository matching everywhere. Repos now store installation
+  IDs after install sync, but PR webhook matching still starts from repository
+  full name and then refreshes installation ID.
 
 ## Start here (tomorrow)
 

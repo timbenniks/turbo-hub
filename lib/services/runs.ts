@@ -4,7 +4,7 @@ import { db } from "@/db"
 import { agentRunEvents, agentRuns, projects, tasks } from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
 import { cacheTags, cachedRead, invalidateTags } from "@/lib/cache"
-import type { AgentRunStatus } from "@/lib/enums"
+import type { ActorType, AgentRunStatus } from "@/lib/enums"
 import { getRunner } from "@/lib/runners/registry"
 import { recordActivity } from "@/lib/services/activity"
 import { updateTask } from "@/lib/services/tasks"
@@ -151,6 +151,7 @@ export async function recordRunEvent(params: {
   event: RunEventCreateInput
   taskId?: string | null
   actorId?: string | null
+  actorType?: ActorType
   activityType?: string
 }): Promise<AgentRunEvent> {
   const { workspaceId, projectId, runId, event, taskId, actorId } = params
@@ -170,7 +171,7 @@ export async function recordRunEvent(params: {
     workspaceId,
     projectId,
     taskId: taskId ?? null,
-    actorType: "agent",
+    actorType: params.actorType ?? "agent",
     actorId: actorId ?? null,
     type: params.activityType ?? "run.event",
     title: event.title,

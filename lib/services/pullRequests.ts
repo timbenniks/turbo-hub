@@ -1,9 +1,17 @@
 import { and, desc, eq } from "drizzle-orm"
 
 import { db } from "@/db"
-import { agentRuns, projects, pullRequests, repositories } from "@/db/schema"
+import {
+  agentRuns,
+  projects,
+  pullRequests,
+  repositories,
+  tasks,
+} from "@/db/schema"
 import type { AuthContext } from "@/lib/auth/context"
 import { cacheTags, invalidateTags } from "@/lib/cache"
+import type { PullRequestState } from "@/lib/enums"
+import { resolveGitHubPullRequestLink } from "@/lib/github/linking"
 import { parseGitHubPullRequestUrl } from "@/lib/github/pull-request-url"
 import { recordActivity } from "@/lib/services/activity"
 import { upsertGitHubRepository } from "@/lib/services/repositories"
@@ -17,6 +25,43 @@ import type {
 export type PullRequest = typeof pullRequests.$inferSelect
 export type PullRequestWithRepository = PullRequest & {
   repository: typeof repositories.$inferSelect | null
+}
+
+export type GitHubWebhookPullRequestInput = {
+  repository: {
+    owner: string
+    name: string
+    fullName: string
+    url: string
+    defaultBranch: string
+    githubInstallationId?: string
+  }
+  pullRequest: {
+    externalId: string
+    number: number
+    title: string
+    url: string
+    state: PullRequestState
+    author?: string | null
+    branch?: string | null
+    baseBranch?: string | null
+    body?: string | null
+  }
+  action: string
+  deliveryId?: string | null
+}
+
+export type GitHubWebhookCheckInput = {
+  repository: {
+    fullName: string
+    githubInstallationId?: string
+  }
+  pullRequests: { number: number }[]
+  name: string
+  conclusion?: string | null
+  htmlUrl?: string | null
+  deliveryId?: string | null
+  action: string
 }
 
 export async function listPullRequests(
@@ -263,4 +308,239 @@ export async function updatePullRequest(
     metadata: { pullRequestId: row.id },
   })
   return row
+}
+
+export async function upsertPullRequestFromGitHubWebhook(
+  input: GitHubWebhookPullRequestInput
+): Promise<PullRequest[]> {
+  const repositoryRows = await db
+    .select()
+    .from(repositories)
+    .where(
+      and(
+        eq(repositories.provider, "github"),
+        eq(repositories.fullName, input.repository.fullName)
+      )
+    )
+
+  const updatedRows: PullRequest[] = []
+
+  for (const repository of repositoryRows) {
+    if (
+      input.repository.githubInstallationId &&
+      repository.githubInstallationId !== input.repository.githubInstallationId
+    ) {
+      await db
+        .update(repositories)
+        .set({ githubInstallationId: input.repository.githubInstallationId })
+        .where(eq(repositories.id, repository.id))
+    }
+
+    const [existing] = await db
+      .select()
+      .from(pullRequests)
+      .where(
+        and(
+          eq(pullRequests.workspaceId, repository.workspaceId),
+          eq(pullRequests.repositoryId, repository.id),
+          eq(pullRequests.number, input.pullRequest.number)
+        )
+      )
+      .limit(1)
+
+    const resolved = await resolveGitHubPullRequestLink({
+      workspaceId: repository.workspaceId,
+      repositoryId: repository.id,
+      body: input.pullRequest.body,
+      headRef: input.pullRequest.branch,
+    })
+
+    const projectId = resolved?.projectId ?? existing?.projectId
+    if (!projectId) continue
+
+    const values = {
+      workspaceId: repository.workspaceId,
+      projectId,
+      taskId: resolved?.taskId ?? existing?.taskId ?? null,
+      runId: resolved?.runId ?? existing?.runId ?? null,
+      repositoryId: repository.id,
+      provider: "github",
+      externalId: input.pullRequest.externalId,
+      number: input.pullRequest.number,
+      title: input.pullRequest.title,
+      url: input.pullRequest.url,
+      state: input.pullRequest.state,
+      author: input.pullRequest.author ?? null,
+      branch: input.pullRequest.branch ?? null,
+      baseBranch: input.pullRequest.baseBranch ?? null,
+      mergedAt: input.pullRequest.state === "merged" ? new Date() : null,
+      closedAt:
+        input.pullRequest.state === "closed" ||
+        input.pullRequest.state === "merged"
+          ? new Date()
+          : null,
+    } satisfies Partial<typeof pullRequests.$inferInsert>
+
+    const [row] = existing
+      ? await db
+          .update(pullRequests)
+          .set(values)
+          .where(
+            and(
+              eq(pullRequests.workspaceId, repository.workspaceId),
+              eq(pullRequests.id, existing.id)
+            )
+          )
+          .returning()
+      : await db
+          .insert(pullRequests)
+          .values(values as typeof pullRequests.$inferInsert)
+          .returning()
+
+    if (!row) continue
+
+    if (row.runId) {
+      await db
+        .update(agentRuns)
+        .set({ pullRequestId: row.id })
+        .where(
+          and(
+            eq(agentRuns.workspaceId, repository.workspaceId),
+            eq(agentRuns.id, row.runId)
+          )
+        )
+
+      await recordRunEvent({
+        workspaceId: repository.workspaceId,
+        projectId: row.projectId,
+        taskId: row.taskId,
+        actorType: "system",
+        runId: row.runId,
+        event: {
+          type: existing ? "pr_updated" : "pr_opened",
+          title: existing
+            ? `GitHub PR ${row.number} → ${row.state}`
+            : `GitHub PR opened: ${row.title}`,
+          metadata: {
+            pullRequestId: row.id,
+            deliveryId: input.deliveryId,
+            action: input.action,
+            state: row.state,
+            url: row.url,
+          },
+        },
+      })
+    }
+
+    if (row.taskId && row.state === "merged") {
+      await db
+        .update(tasks)
+        .set({ status: "done", completedAt: new Date() })
+        .where(
+          and(
+            eq(tasks.workspaceId, repository.workspaceId),
+            eq(tasks.id, row.taskId)
+          )
+        )
+    }
+
+    await recordActivity({
+      workspaceId: repository.workspaceId,
+      projectId: row.projectId,
+      taskId: row.taskId,
+      actorType: "system",
+      type: existing
+        ? "github.pull_request.updated"
+        : "github.pull_request.linked",
+      title: existing
+        ? `GitHub updated PR #${row.number}: ${row.title}`
+        : `GitHub linked PR #${row.number}: ${row.title}`,
+      metadata: {
+        pullRequestId: row.id,
+        repositoryId: repository.id,
+        deliveryId: input.deliveryId,
+        action: input.action,
+        state: row.state,
+      },
+    })
+
+    invalidateTags(
+      cacheTags.project(repository.workspaceId, row.projectId),
+      cacheTags.repositories(repository.workspaceId)
+    )
+    updatedRows.push(row)
+  }
+
+  return updatedRows
+}
+
+export async function recordGitHubCheckFromWebhook(
+  input: GitHubWebhookCheckInput
+): Promise<number> {
+  if (input.pullRequests.length === 0) return 0
+
+  const repositoryRows = await db
+    .select()
+    .from(repositories)
+    .where(
+      and(
+        eq(repositories.provider, "github"),
+        eq(repositories.fullName, input.repository.fullName)
+      )
+    )
+
+  let recorded = 0
+
+  for (const repository of repositoryRows) {
+    if (
+      input.repository.githubInstallationId &&
+      repository.githubInstallationId !== input.repository.githubInstallationId
+    ) {
+      continue
+    }
+
+    for (const prRef of input.pullRequests) {
+      const [pr] = await db
+        .select()
+        .from(pullRequests)
+        .where(
+          and(
+            eq(pullRequests.workspaceId, repository.workspaceId),
+            eq(pullRequests.repositoryId, repository.id),
+            eq(pullRequests.number, prRef.number)
+          )
+        )
+        .limit(1)
+
+      if (!pr?.runId) continue
+
+      const passed =
+        input.conclusion === "success" ||
+        input.conclusion === "neutral" ||
+        input.conclusion === "skipped"
+
+      await recordRunEvent({
+        workspaceId: repository.workspaceId,
+        projectId: pr.projectId,
+        taskId: pr.taskId,
+        actorType: "system",
+        runId: pr.runId,
+        event: {
+          type: passed ? "check_passed" : "check_failed",
+          title: `GitHub check ${passed ? "passed" : "failed"}: ${input.name}`,
+          metadata: {
+            pullRequestId: pr.id,
+            deliveryId: input.deliveryId,
+            action: input.action,
+            conclusion: input.conclusion,
+            url: input.htmlUrl,
+          },
+        },
+      })
+
+      recorded += 1
+    }
+  }
+
+  return recorded
 }

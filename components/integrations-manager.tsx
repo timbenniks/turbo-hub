@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Plus } from "lucide-react"
+import Link from "next/link"
+import { Plus, Webhook } from "lucide-react"
 
 import { useAsyncAction } from "@/hooks/use-async-action"
 import { Button } from "@/components/ui/button"
@@ -28,20 +29,78 @@ export function IntegrationsManager({
   integrations: Integration[]
 }) {
   const { busy, run } = useAsyncAction()
+  const githubIntegration = integrations.find(
+    (integration) =>
+      integration.provider === "github" &&
+      typeof integration.config.installationId === "string"
+  )
+  const githubRepositoryCount =
+    typeof githubIntegration?.config.repositoryCount === "number"
+      ? githubIntegration.config.repositoryCount
+      : null
+  const credentialIntegrations = integrations.filter(
+    (integration) => integration.id !== githubIntegration?.id
+  )
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant="outline"
+          render={<Link href="/api/integrations/github/install" />}
+        >
+          <Webhook />
+          {githubIntegration ? "Reconnect GitHub App" : "Connect GitHub App"}
+        </Button>
         <CreateIntegrationDialog />
       </div>
 
-      {integrations.length === 0 ? (
+      {githubIntegration ? (
+        <div className="rounded-lg border border-border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 space-y-0.5">
+              <p className="truncate text-sm font-medium">
+                GitHub App connected
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {typeof githubIntegration.config.accountLogin === "string"
+                  ? `${githubIntegration.config.accountLogin} · `
+                  : ""}
+                {githubRepositoryCount === null
+                  ? "Repositories synced"
+                  : `${githubRepositoryCount} repos synced`}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              disabled={busy}
+              onClick={() => {
+                if (!confirm("Delete GitHub App integration record?")) return
+                run(
+                  () =>
+                    apiSend(
+                      `/api/integrations/${githubIntegration.id}`,
+                      "DELETE"
+                    ),
+                  "Integration deleted"
+                )
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {credentialIntegrations.length === 0 ? (
         <p className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
           No integrations configured yet.
         </p>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border">
-          {integrations.map((integration) => (
+          {credentialIntegrations.map((integration) => (
             <li
               key={integration.id}
               className="flex flex-wrap items-center justify-between gap-3 p-3"

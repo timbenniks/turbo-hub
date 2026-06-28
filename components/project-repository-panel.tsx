@@ -8,15 +8,18 @@ import { Button } from "@/components/ui/button"
 import { Field } from "@/components/ui/field"
 import { FormDialog } from "@/components/ui/form-dialog"
 import { Input } from "@/components/ui/input"
+import { NativeSelect } from "@/components/ui/native-select"
 import { apiSend } from "@/lib/client"
 import type { Repository } from "@/lib/services/repositories"
 
 export function ProjectRepositoryPanel({
   projectId,
   repository,
+  repositories,
 }: {
   projectId: string
   repository: Repository | null
+  repositories: Repository[]
 }) {
   const router = useRouter()
   const { busy, run } = useAsyncAction()
@@ -25,6 +28,7 @@ export function ProjectRepositoryPanel({
     const ok = await run(
       () =>
         apiSend(`/api/projects/${projectId}/repository`, "POST", {
+          repositoryId: values.repositoryId || undefined,
           url: values.url || undefined,
           defaultBranch: values.defaultBranch || "main",
         }),
@@ -59,8 +63,8 @@ export function ProjectRepositoryPanel({
             </div>
           ) : (
             <p className="max-w-xs text-sm text-muted-foreground">
-              Repo not linked. Link one to include setup commands, branch naming,
-              and PR tracking in agent context packs.
+              Repo not linked. Link one to include setup commands, branch
+              naming, and PR tracking in agent context packs.
             </p>
           )}
         </div>
@@ -77,13 +81,30 @@ export function ProjectRepositoryPanel({
           disabled={busy}
           onSubmit={linkRepository}
         >
+          {repositories.length > 0 ? (
+            <Field label="Installed repository" htmlFor="repo-id">
+              <NativeSelect
+                id="repo-id"
+                name="repositoryId"
+                defaultValue={repository?.id ?? ""}
+                className="w-full"
+              >
+                <option value="">Paste a repository URL</option>
+                {repositories.map((repo) => (
+                  <option key={repo.id} value={repo.id}>
+                    {repo.fullName}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          ) : null}
           <Field label="GitHub repository URL" htmlFor="repo-url">
             <Input
               id="repo-url"
               name="url"
               type="url"
               placeholder="https://github.com/owner/repo"
-              required
+              required={repositories.length === 0}
               autoFocus
             />
           </Field>
